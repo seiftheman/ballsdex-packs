@@ -1,0 +1,7 @@
+[project]
+name = "packs"
+version = "1.0.0"
+
+dependencies = [
+    "ballsdex>=3.0.0",
+]
