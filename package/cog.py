@@ -24,7 +24,7 @@ class Packs(commands.GroupCog):
         self.bot = bot
 
     @app_commands.command()
-    @app_commands.checks.cooldown(1, 20, key=lambda i: i.user.id)
+    @app_commands.checks.cooldown(1, 86400, key=lambda i: i.user.id)
     async def daily(self, interaction: discord.Interaction):
         """Obtain a daily pack that contains a random countryball."""
         await interaction.response.defer()
