@@ -18,6 +18,13 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
+                    "kind",
+                    models.CharField(
+                        max_length=100,
+                        help_text="Type of the pack.",
+                    ),
+                ),
+                (
                     "discord_id",
                     models.BigIntegerField(
                         unique=True,
