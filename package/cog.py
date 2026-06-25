@@ -29,15 +29,3 @@ class Packs(commands.GroupCog):
         """Obtain a daily pack that contains a random countryball."""
         await interaction.response.defer()
         
-        try:
-            pack, created = await sync_to_async(Pack.objects.get_or_create)(
-                discord_id=interaction.user.id
-            )
-            await interaction.followup.send(content="You just claimed a ** Daily Pack**!")
-        except Exception as e:
-            log.error(f"Error in daily command: {e}", exc_info=True)
-            await interaction.followup.send(
-                "An error occurred while processing your daily pack.",
-                ephemeral=True
-            )
-        
