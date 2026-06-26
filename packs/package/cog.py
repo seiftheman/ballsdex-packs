@@ -53,7 +53,7 @@ class Packs(commands.GroupCog):
             return
         await Pack.objects.filter(discord_id=interaction.user.id, kind=pack.value).adelete()
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
-        balls = await Ball.objects.all()
+        balls = Ball.objects.all()
 
         ball = random.choice(list(balls))
         attack_bonus = random.randint(-settings.max_attack_bonus, settings.max_attack_bonus)
