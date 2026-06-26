@@ -2,6 +2,12 @@
 name = "packs"
 version = "1.0.0"
 
+description = "Packs package for Ballsdex 3.0"
+license = "Apache-2.0"
+authors = [
+    { name = "Seif Eldeen Mahmoud", email = "seiftheman1@gmail.com" },
+]
+
 dependencies = [
     "ballsdex>=3.0.0",
 ]
