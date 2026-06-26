@@ -66,7 +66,7 @@ class Packs(commands.GroupCog):
             player=player,
             attack_bonus=attack_bonus,
             health_bonus=health_bonus,
-            special=False,
+            special=None,
         )
 
         message = (
