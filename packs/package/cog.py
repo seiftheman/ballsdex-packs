@@ -77,7 +77,4 @@ class Packs(commands.GroupCog):
         if is_new:
             message += f"This is a **new {settings.collectible_name}** that has been added to your completion!"
         
-        if pack.value == "daily":
-            await interaction.followup.send(message)
-        elif pack.value == "weekly":
-            await interaction.followup.send(message)
+        await interaction.followup.send(message)
