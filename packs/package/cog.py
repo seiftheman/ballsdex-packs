@@ -26,7 +26,7 @@ class Pack(commands.GroupCog):
     async def daily(self, interaction: discord.Interaction):
         """Obtain a daily pack that contains a random countryball."""
         await interaction.response.defer()
-        await Pack.create(discord_id=interaction.user.id, kind="daily")
+        await Pack.objects.acreate(discord_id=interaction.user.id, kind="daily")
         await interaction.followup.send("You just claimed a daily pack!")
 
     @app_commands.command()
@@ -34,7 +34,7 @@ class Pack(commands.GroupCog):
     async def weekly(self, interaction: discord.Interaction):
         """Obtain a weekly pack that contains a random countryball."""
         await interaction.response.defer()
-        await Pack.create(discord_id=interaction.user.id, kind="weekly")
+        await Pack.objects.acreate(discord_id=interaction.user.id, kind="weekly")
         await interaction.followup.send("You just claimed a weekly pack!")
     
     @app_commands.command()
@@ -48,13 +48,14 @@ class Pack(commands.GroupCog):
         """Open a pack to obtain a random countryball."""
         await interaction.response.defer()
         if pack.value == "daily":
-            pack = await Pack.filter(discord_id=interaction.user.id, kind="daily").afirst()
+            daily_pack = await Pack.objects.afilter(discord_id=interaction.user.id, kind="daily").afirst()
         elif pack.value == "weekly":
-            pack = await Pack.filter(discord_id=interaction.user.id, kind="weekly").afirst()
+            weekly_pack = await Pack.objects.afilter(discord_id=interaction.user.id, kind="weekly").afirst()
         if not pack:
             await interaction.followup.send("You don't have any packs to open!")
             return
         await interaction.response.defer()
+        await Pa
 
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
         balls = await Ball.objects.all()
@@ -76,12 +77,10 @@ class Pack(commands.GroupCog):
                 "**Daily Pack**\n"
                 f"{interaction.user.mention} You packed **{ball.country}!** "
                 f"``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``\n\n"
-                f"This is a **new {settings.collectible_name}** that has been added to your completion!"
             )
         elif pack.value == "weekly":
             await interaction.followup.send(
                 "**Weekly Pack**\n"
                 f"{interaction.user.mention} You packed **{ball.country}!** "
                 f"``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``\n\n"
-                f"This is a **new {settings.collectible_name}** that has been added to your completion!"
             )
