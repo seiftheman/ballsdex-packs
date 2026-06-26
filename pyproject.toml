@@ -8,6 +8,4 @@ authors = [
     { name = "Seif Eldeen Mahmoud", email = "seiftheman1@gmail.com" },
 ]
 
-dependencies = [
-    "ballsdex>=3.0.0",
-]
+dependencies = []
