@@ -10,6 +10,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from bd_models.models import Ball, BallInstance, Player
+from settings.models import settings
 from ..models import Pack
 
 if TYPE_CHECKING:
@@ -53,9 +54,10 @@ class Packs(commands.GroupCog):
             return
         await Pack.objects.filter(discord_id=interaction.user.id, kind=pack.value).adelete()
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
-        balls = Ball.objects.all()
+        balls = [ball async for ball in Ball.objects.all()]
 
         ball = random.choice(list(balls))
+        is_new = not await BallInstance.objects.filter(player=player, ball=ball).aexists()
         attack_bonus = random.randint(-settings.max_attack_bonus, settings.max_attack_bonus)
         health_bonus = random.randint(-settings.max_health_bonus, settings.max_health_bonus)
 
@@ -67,15 +69,15 @@ class Packs(commands.GroupCog):
             special=False,
         )
 
+        message = (
+            "**Daily Pack**\n" if pack.value == "daily" else "**Weekly Pack**\n"
+            f"{interaction.user.mention} You packed **{ball.country}!** "
+            f"``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``\n\n"
+        )
+        if is_new:
+            message += f"This is a **new {settings.collectible_name}** that has been added to your completion!"
+        
         if pack.value == "daily":
-            await interaction.followup.send(
-                "**Daily Pack**\n"
-                f"{interaction.user.mention} You packed **{ball.country}!** "
-                f"``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``\n\n"
-            )
+            await interaction.followup.send(message)
         elif pack.value == "weekly":
-            await interaction.followup.send(
-                "**Weekly Pack**\n"
-                f"{interaction.user.mention} You packed **{ball.country}!** "
-                f"``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``\n\n"
-            )
+            await interaction.followup.send(message)
