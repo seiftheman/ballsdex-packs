@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
-from random import random
+import random
 from typing import TYPE_CHECKING, Any
 
 import discord
