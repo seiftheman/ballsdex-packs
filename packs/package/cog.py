@@ -71,7 +71,7 @@ class Packs(commands.GroupCog):
 
         message = (
             "**Daily Pack**\n" if pack.value == "daily" else "**Weekly Pack**\n"
-            f"{interaction.user.mention} You packed **{ball.country}!** "
+            f"{interaction.user.mention} You packed **{instance.ball.country}!** "
             f"``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``\n\n"
         )
         if is_new:
