@@ -27,7 +27,6 @@ class Migration(migrations.Migration):
                 (
                     "discord_id",
                     models.BigIntegerField(
-                        unique=True,
                         help_text="Discord user ID",
                     ),
                 ),
