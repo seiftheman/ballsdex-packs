@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("ballsdex.packages.packs")
 
-class Pack(commands.GroupCog):
+class Packs(commands.GroupCog):
     def __init__(self, bot: "BallsDexBot"):
         self.bot = bot
 
