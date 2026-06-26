@@ -47,11 +47,8 @@ class Packs(commands.GroupCog):
     async def open(self, interaction: discord.Interaction, pack: app_commands.Choice[str]):
         """Open a pack to obtain a random countryball."""
         await interaction.response.defer()
-        if pack.value == "daily":
-            daily_pack = await Pack.objects.filter(discord_id=interaction.user.id, kind="daily").afirst()
-        elif pack.value == "weekly":
-            weekly_pack = await Pack.objects.filter(discord_id=interaction.user.id, kind="weekly").afirst()
-        if not daily_pack or weekly_pack:
+        pack_obj = await Pack.objects.filter(discord_id=interaction.user.id, kind=pack.value).afirst()
+        if not pack_obj:
             await interaction.followup.send("You don't have any packs to open!")
             return
         await Pack.objects.filter(discord_id=interaction.user.id, kind=pack.value).adelete()
