@@ -51,12 +51,10 @@ class Packs(commands.GroupCog):
             daily_pack = await Pack.objects.filter(discord_id=interaction.user.id, kind="daily").afirst()
         elif pack.value == "weekly":
             weekly_pack = await Pack.objects.filter(discord_id=interaction.user.id, kind="weekly").afirst()
-        if not pack:
+        if not daily_pack or weekly_pack:
             await interaction.followup.send("You don't have any packs to open!")
             return
-        await interaction.response.defer()
-        await Pa
-
+        await Pack.objects.filter(discord_id=interaction.user.id, kind=pack.value).adelete()
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
         balls = await Ball.objects.all()
 
