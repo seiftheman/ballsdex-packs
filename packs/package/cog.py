@@ -68,11 +68,13 @@ class PackCog(commands.GroupCog, name="pack"):
 
         results = []
         any_new = False
+        new_balls = []
         for _ in range(amount):
             ball = random.choice(balls)
             is_new = not await BallInstance.objects.filter(player=player, ball=ball).aexists()
             if is_new:
                 any_new = True
+                new_balls.append(ball.country)
 
             attack_bonus = random.randint(-settings.max_attack_bonus, settings.max_attack_bonus)
             health_bonus = random.randint(-settings.max_health_bonus, settings.max_health_bonus)
@@ -87,12 +89,29 @@ class PackCog(commands.GroupCog, name="pack"):
             results.append(
                 f"**{instance.ball.country}!** ``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``"
             )
-
+        
         message = (
             f"**{pack.value.capitalize()} Pack**\n"
             f"{interaction.user.mention} You packed {', '.join(results)}"
         )
         if any_new:
-            message += f"{instance.ball.country} is a **new {settings.collectible_name}** that has been added to your completion!"
+                if len(new_balls) == 1:
+                    new_names = new_balls[0]
+                    message += (
+                        f"\n\n{new_names} is a **new {settings.collectible_name}** "
+                        "that has been added to your completion!"
+                    )
+                elif len(new_balls) == 2:
+                    new_names = f"{new_balls[0]} and {new_balls[1]}"
+                    message += (
+                        f"\n\n{new_names} are new "
+                        f"{settings.plural_collectible_name} that have been added to your completion!"
+                    )
+        else:
+                new_names = ", ".join(new_balls[:-1]) + f", and {new_balls[-1]}"
+                message += (
+                    f"\n\n{new_names} are new "
+                    f"{settings.plural_collectible_name} that have been added to your completion!"
+                )
 
         await interaction.followup.send(message)
