@@ -45,18 +45,23 @@ class PackCog(commands.GroupCog, name="pack"):
             app_commands.Choice(name="Weekly", value="weekly"),
         ]
     )
+    @app_commands.choices(
+        pack="Type of the pack you want to open.",
+        amount="Amount of packs you want to open."
+    )
     async def open(self, interaction: discord.Interaction, pack: app_commands.Choice[str], amount: int = 1):
-        """Open a pack to obtain a random countryball."""
+        """Open any of your owned packs."""
         await interaction.response.defer()
         pack_qs = Pack.objects.filter(discord_id=interaction.user.id, kind=pack.value)
         pack_count = await pack_qs.acount()
         if pack_count == 0:
-            await interaction.followup.send("You don't have any packs to open!")
+            await interaction.followup.send("You don't have any packs to open!", ephemeral=True)
             return
 
         if amount > pack_count:
             await interaction.followup.send(
-                f"You only have {pack_count} {pack.value} pack(s) to open."
+                f"You only have {pack_count} {pack.value} pack(s) to open.",
+                ephemeral=True
             )
             return
 
