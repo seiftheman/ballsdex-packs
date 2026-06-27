@@ -90,7 +90,7 @@ class PackCog(commands.GroupCog, name="pack"):
 
         message = (
             f"**{pack.value.capitalize()} Pack**\n"
-            f"{interaction.user.mention} You packed {results}"
+            f"{interaction.user.mention} You packed {', '.join(results)}"
         )
         if any_new:
             message += f"{instance.ball.country} is a **new {settings.collectible_name}** that has been added to your completion!"
