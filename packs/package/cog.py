@@ -87,12 +87,12 @@ class PackCog(commands.GroupCog, name="pack"):
             )
 
             results.append(
-                f"**{instance.ball.country}!** ``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``"
+                f"**{instance.ball.country}** ``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``"
             )
         
         message = (
             f"**{pack.value.capitalize()} Pack**\n"
-            f"{interaction.user.mention} You packed {', '.join(results)}"
+            f"{interaction.user.mention} You packed {', '.join(results)}!"
         )
         if any_new:
                 if len(new_balls) == 1:
@@ -107,11 +107,11 @@ class PackCog(commands.GroupCog, name="pack"):
                         f"\n\n{new_names} are new "
                         f"{settings.plural_collectible_name} that have been added to your completion!"
                     )
-        else:
-                new_names = ", ".join(new_balls[:-1]) + f", and {new_balls[-1]}"
-                message += (
-                    f"\n\n{new_names} are new "
-                    f"{settings.plural_collectible_name} that have been added to your completion!"
-                )
+                else:
+                    new_names = ", ".join(new_balls[:-1]) + f", and {new_balls[-1]}"
+                    message += (
+                        f"\n\n{new_names} are new "
+                        f"{settings.plural_collectible_name} that have been added to your completion!"
+                    )
 
         await interaction.followup.send(message)
