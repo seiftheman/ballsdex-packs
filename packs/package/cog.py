@@ -46,18 +46,16 @@ class PackCog(commands.GroupCog, name="pack"):
         app_commands.Choice(name="Weekly", value="weekly"),
     ]
     )
-    async def open(self, interaction: discord.Interaction, pack: app_commands.Choice[str]):
+    async def open(self, interaction: discord.Interaction, pack: app_commands.Choice[str], amount: int = 1):
         """Open a pack to obtain a random countryball."""
         await interaction.response.defer()
         pack_qs = Pack.objects.filter(discord_id=interaction.user.id, kind=pack.value)
-         pack_count = await pack_qs.acount()
-         if pack_count == 0:
+        pack_count = await pack_qs.acount()
+        if pack_count == 0:
              await interaction.followup.send("You don't have any packs to open!")
              return
 
-         if amount < 1:
-             amount = 1
-         if amount > pack_count:
+        if amount > pack_count:
              await interaction.followup.send(
                  f"You only have {pack_count} {pack.value} pack(s) to open."
              )
