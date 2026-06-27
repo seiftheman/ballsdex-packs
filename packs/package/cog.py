@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("ballsdex.packages.packs")
 
-class Packs(commands.GroupCog):
+class PackCog(commands.GroupCog, name="pack"):
     def __init__(self, bot: "BallsDexBot"):
         self.bot = bot
 
@@ -38,6 +38,7 @@ class Packs(commands.GroupCog):
         await Pack.objects.acreate(discord_id=interaction.user.id, kind="weekly")
         await interaction.followup.send("You just claimed a weekly pack!")
     
+class PackCog(commands.GroupCog, name="pack"):
     @app_commands.command()
     @app_commands.choices(
     pack=[
@@ -48,33 +49,53 @@ class Packs(commands.GroupCog):
     async def open(self, interaction: discord.Interaction, pack: app_commands.Choice[str]):
         """Open a pack to obtain a random countryball."""
         await interaction.response.defer()
-        pack_obj = await Pack.objects.filter(discord_id=interaction.user.id, kind=pack.value).afirst()
-        if not pack_obj:
-            await interaction.followup.send("You don't have any packs to open!")
-            return
-        await Pack.objects.filter(discord_id=interaction.user.id, kind=pack.value).adelete()
-        player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
-        balls = [ball async for ball in Ball.objects.all()]
+        pack_qs = Pack.objects.filter(discord_id=interaction.user.id, kind=pack.value)
+         pack_count = await pack_qs.acount()
+         if pack_count == 0:
+             await interaction.followup.send("You don't have any packs to open!")
+             return
 
-        ball = random.choice(list(balls))
-        is_new = not await BallInstance.objects.filter(player=player, ball=ball).aexists()
-        attack_bonus = random.randint(-settings.max_attack_bonus, settings.max_attack_bonus)
-        health_bonus = random.randint(-settings.max_health_bonus, settings.max_health_bonus)
+         if amount < 1:
+             amount = 1
+         if amount > pack_count:
+             await interaction.followup.send(
+                 f"You only have {pack_count} {pack.value} pack(s) to open."
+             )
+             return
 
-        instance = await BallInstance.objects.acreate(
-            ball=ball,
-            player=player,
-            attack_bonus=attack_bonus,
-            health_bonus=health_bonus,
-            special=None,
-        )
+         pack_ids = [pid async for pid in pack_qs.values_list("id", flat=True)[:amount]]
+         await Pack.objects.filter(id__in=pack_ids).adelete()
+
+         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
+         balls = [ball async for ball in Ball.objects.all()]
+        
+         results = []
+         any_new = False
+         for _ in range(amount):
+             ball = random.choice(balls)
+             is_new = not await BallInstance.objects.filter(player=player, ball=ball).aexists()
+             if is_new:
+                 any_new = True
+
+             attack_bonus = random.randint(-settings.max_attack_bonus, settings.max_attack_bonus)
+             health_bonus = random.randint(-settings.max_health_bonus, settings.max_health_bonus)
+
+             instance = await BallInstance.objects.acreate(
+                 ball=ball,
+                 player=player,
+                 attack_bonus=attack_bonus,
+                 health_bonus=health_bonus,
+             )
+
+             results.append(
+                 f"**{instance.ball.country}!** ``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``"
+             )
 
         message = (
             f"**{pack.value.capitalize()} Pack**\n"
-            f"{interaction.user.mention} You packed **{instance.ball.country}!** "
-            f"``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``\n\n"
+            f"{interaction.user.mention} You packed {results}"
         )
-        if is_new:
-            message += f"This is a **new {settings.collectible_name}** that has been added to your completion!"
+        if any_new:
+            message += f"{instance.ball.country} is a **new {settings.collectible_name}** that has been added to your completion!"
         
         await interaction.followup.send(message)
