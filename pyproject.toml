@@ -8,4 +8,7 @@ authors = [
     { name = "Seif", email = "seiftheman1@gmail.com" },
 ]
 
-dependencies = []
+[project.urls]
+Repository = "https://github.com/seiftheman/ballsdex-packs"
+Documentation = "https://github.com/seiftheman/ballsdex-packs#readme"
+Issues = "https://github.com/seiftheman/ballsdex-packs/issues"
