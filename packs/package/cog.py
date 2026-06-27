@@ -98,7 +98,7 @@ class PackCog(commands.GroupCog, name="pack"):
                 if len(new_balls) == 1:
                     new_names = new_balls[0]
                     message += (
-                        f"\n\n{new_names} is a **new {settings.collectible_name}** "
+                        f"\n\nThis is a **new {settings.collectible_name}** "
                         "that has been added to your completion!"
                     )
                 elif len(new_balls) == 2:
