@@ -38,13 +38,12 @@ class PackCog(commands.GroupCog, name="pack"):
         await Pack.objects.acreate(discord_id=interaction.user.id, kind="weekly")
         await interaction.followup.send("You just claimed a weekly pack!")
     
-class PackCog(commands.GroupCog, name="pack"):
     @app_commands.command()
     @app_commands.choices(
-    pack=[
-        app_commands.Choice(name="Daily", value="daily"),
-        app_commands.Choice(name="Weekly", value="weekly"),
-    ]
+        pack=[
+            app_commands.Choice(name="Daily", value="daily"),
+            app_commands.Choice(name="Weekly", value="weekly"),
+        ]
     )
     async def open(self, interaction: discord.Interaction, pack: app_commands.Choice[str], amount: int = 1):
         """Open a pack to obtain a random countryball."""
@@ -52,42 +51,42 @@ class PackCog(commands.GroupCog, name="pack"):
         pack_qs = Pack.objects.filter(discord_id=interaction.user.id, kind=pack.value)
         pack_count = await pack_qs.acount()
         if pack_count == 0:
-             await interaction.followup.send("You don't have any packs to open!")
-             return
+            await interaction.followup.send("You don't have any packs to open!")
+            return
 
         if amount > pack_count:
-             await interaction.followup.send(
-                 f"You only have {pack_count} {pack.value} pack(s) to open."
-             )
-             return
+            await interaction.followup.send(
+                f"You only have {pack_count} {pack.value} pack(s) to open."
+            )
+            return
 
-         pack_ids = [pid async for pid in pack_qs.values_list("id", flat=True)[:amount]]
-         await Pack.objects.filter(id__in=pack_ids).adelete()
+        pack_ids = [pid async for pid in pack_qs.values_list("id", flat=True)[:amount]]
+        await Pack.objects.filter(id__in=pack_ids).adelete()
 
-         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
-         balls = [ball async for ball in Ball.objects.all()]
-        
-         results = []
-         any_new = False
-         for _ in range(amount):
-             ball = random.choice(balls)
-             is_new = not await BallInstance.objects.filter(player=player, ball=ball).aexists()
-             if is_new:
-                 any_new = True
+        player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
+        balls = [ball async for ball in Ball.objects.all()]
 
-             attack_bonus = random.randint(-settings.max_attack_bonus, settings.max_attack_bonus)
-             health_bonus = random.randint(-settings.max_health_bonus, settings.max_health_bonus)
+        results = []
+        any_new = False
+        for _ in range(amount):
+            ball = random.choice(balls)
+            is_new = not await BallInstance.objects.filter(player=player, ball=ball).aexists()
+            if is_new:
+                any_new = True
 
-             instance = await BallInstance.objects.acreate(
-                 ball=ball,
-                 player=player,
-                 attack_bonus=attack_bonus,
-                 health_bonus=health_bonus,
-             )
+            attack_bonus = random.randint(-settings.max_attack_bonus, settings.max_attack_bonus)
+            health_bonus = random.randint(-settings.max_health_bonus, settings.max_health_bonus)
 
-             results.append(
-                 f"**{instance.ball.country}!** ``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``"
-             )
+            instance = await BallInstance.objects.acreate(
+                ball=ball,
+                player=player,
+                attack_bonus=attack_bonus,
+                health_bonus=health_bonus,
+            )
+
+            results.append(
+                f"**{instance.ball.country}!** ``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``"
+            )
 
         message = (
             f"**{pack.value.capitalize()} Pack**\n"
@@ -95,5 +94,5 @@ class PackCog(commands.GroupCog, name="pack"):
         )
         if any_new:
             message += f"{instance.ball.country} is a **new {settings.collectible_name}** that has been added to your completion!"
-        
+
         await interaction.followup.send(message)
