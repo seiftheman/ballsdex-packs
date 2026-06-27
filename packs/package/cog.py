@@ -45,7 +45,7 @@ class PackCog(commands.GroupCog, name="pack"):
             app_commands.Choice(name="Weekly", value="weekly"),
         ]
     )
-    @app_commands.choices(
+    @app_commands.describe(
         pack="Type of the pack you want to open.",
         amount="Amount of packs you want to open."
     )
