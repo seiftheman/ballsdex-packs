@@ -57,7 +57,7 @@ class PackCog(commands.GroupCog, name="pack"):
     
     @app_commands.command()
     async def list(self, interaction: discord.Interaction):
-        """Show counts of owned packs."""
+        """View a list of your owned packs."""
         await interaction.response.defer()
         daily_count = await Pack.objects.filter(discord_id=interaction.user.id, kind="daily").acount()
         weekly_count = await Pack.objects.filter(discord_id=interaction.user.id, kind="weekly").acount()
@@ -66,7 +66,7 @@ class PackCog(commands.GroupCog, name="pack"):
         elif weekly_count > 0 and daily_count == 0:
             await interaction.followup.send(f"Weekly Packs: {weekly_count}")  
         else:
-            await interaction.followup.send("You don't have any packs to show!")
+            await interaction.followup.send("You don't have any packs yet.")
     
     @app_commands.command()
     @app_commands.choices(
@@ -85,7 +85,7 @@ class PackCog(commands.GroupCog, name="pack"):
         pack_qs = Pack.objects.filter(discord_id=interaction.user.id, kind=type.value)
         pack_count = await pack_qs.acount()
         if pack_count == 0:
-            await interaction.followup.send("You don't have any packs to open!", ephemeral=True)
+            await interaction.followup.send("You don't have any packs yet.", ephemeral=True)
             return
 
         if amount > pack_count:
