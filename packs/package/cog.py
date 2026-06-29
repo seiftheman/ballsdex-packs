@@ -69,7 +69,7 @@ class PackCog(commands.GroupCog, name="pack"):
     
     @app_commands.command()
     @app_commands.choices(
-        pack=[
+        type=[
             app_commands.Choice(name="Daily", value="daily"),
             app_commands.Choice(name="Weekly", value="weekly"),
         ]
