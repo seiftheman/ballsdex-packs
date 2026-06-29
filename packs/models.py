@@ -10,4 +10,3 @@ class Pack(models.Model):
         blank=True,
         help_text="When this pack was claimed (used for cooldown tracking)."
     )
-
