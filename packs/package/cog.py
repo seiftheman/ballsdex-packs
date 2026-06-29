@@ -4,6 +4,8 @@ import asyncio
 import inspect
 import logging
 import random
+from datetime import timedelta
+from django.utils import timezone
 from typing import TYPE_CHECKING, Any
 
 import discord
@@ -22,12 +24,27 @@ class PackCog(commands.GroupCog, name="pack"):
     def __init__(self, bot: "BallsDexBot"):
         self.bot = bot
 
+    async def _can_claim(self, discord_id: int, kind: str, cooldown: timedelta) -> tuple[bool, float]:
+        """
+        Returns (can_claim, seconds_remaining)
+        """
+        latest = await Pack.objects.filter(discord_id=discord_id, kind=kind).order_by("-last_claim_date").afirst()
+        if not latest or not latest.last_claim_date:
+            return True, 0.0
+        delta = timezone.now() - latest.last_claim_date
+        if delta >= cooldown:
+            return True, 0.0
+        remaining = (cooldown - delta).total_seconds()
+        return False, remaining
+    
     @app_commands.command()
-    @app_commands.checks.cooldown(1, 86400, key=lambda i: i.user.id)
     async def daily(self, interaction: discord.Interaction):
         """Obtain a daily pack that contains a random countryball."""
-        await interaction.response.defer()
-        await Pack.objects.acreate(discord_id=interaction.user.id, kind="daily")
+        can, rem = await self._can_claim(interaction.user.id, "daily", timedelta(days=1))
+        if not can:
+            await interaction.followup.send(f"You've already claimed a daily pack. Try again in {int(rem)}s.", ephemeral=True)
+            return
+        await Pack.objects.acreate(discord_id=interaction.user.id, kind="daily", last_claim_date=timezone.now())
         await interaction.followup.send("You just claimed a daily pack!")
 
     @app_commands.command()
@@ -39,6 +56,18 @@ class PackCog(commands.GroupCog, name="pack"):
         await interaction.followup.send("You just claimed a weekly pack!")
     
     @app_commands.command()
+    async def list(self, interaction: discord.Interaction):
+        """Show counts of owned packs."""
+        daily_count = await Pack.objects.filter(discord_id=interaction.user.id, kind="daily").acount()
+        weekly_count = await Pack.objects.filter(discord_id=interaction.user.id, kind="weekly").acount()
+        if daily_count > 0 and weekly_count == 0:
+            await interaction.followup.send(f"Daily Packs: {daily_count}")   
+        elif weekly_count > 0 and daily_count == 0:
+            await interaction.followup.send(f"Weekly Packs: {weekly_count}")  
+        else:
+            await interaction.followup.send("You don't have any packs to show!")
+    
+    @app_commands.command()
     @app_commands.choices(
         pack=[
             app_commands.Choice(name="Daily", value="daily"),
@@ -46,13 +75,13 @@ class PackCog(commands.GroupCog, name="pack"):
         ]
     )
     @app_commands.describe(
-        pack="Type of the pack you want to open.",
+        type="Type of the pack you want to open.",
         amount="Amount of packs you want to open."
     )
-    async def open(self, interaction: discord.Interaction, pack: app_commands.Choice[str], amount: int = 1):
+    async def open(self, interaction: discord.Interaction, type: app_commands.Choice[str], amount: int = 1):
         """Open any of your owned packs."""
         await interaction.response.defer()
-        pack_qs = Pack.objects.filter(discord_id=interaction.user.id, kind=pack.value)
+        pack_qs = Pack.objects.filter(discord_id=interaction.user.id, kind=type.value)
         pack_count = await pack_qs.acount()
         if pack_count == 0:
             await interaction.followup.send("You don't have any packs to open!", ephemeral=True)
@@ -60,7 +89,7 @@ class PackCog(commands.GroupCog, name="pack"):
 
         if amount > pack_count:
             await interaction.followup.send(
-                f"You only have {pack_count} {pack.value} pack(s) to open.",
+                f"You only have {pack_count} {type.value} pack(s) to open.",
                 ephemeral=True
             )
             return
@@ -96,7 +125,7 @@ class PackCog(commands.GroupCog, name="pack"):
             )
         
         message = (
-            f"**{pack.value.capitalize()} Pack**\n"
+            f"**{type.value.capitalize()} Pack**\n"
             f"{interaction.user.mention} You packed {', '.join(results)}!"
         )
         if any_new:

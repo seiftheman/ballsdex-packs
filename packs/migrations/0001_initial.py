@@ -25,9 +25,17 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
+                    "last_claim_date",
+                    models.DateTimeField(
+                        null=True,
+                        blank=True,
+                        help_text="When this pack was claimed (used for cooldown tracking).",
+                    ),
+                ),
+                (
                     "discord_id",
                     models.BigIntegerField(
-                        help_text="Discord user ID",
+                        help_text="Discord user ID.",
                     ),
                 ),
             ],
