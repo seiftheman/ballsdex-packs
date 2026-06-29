@@ -40,6 +40,7 @@ class PackCog(commands.GroupCog, name="pack"):
     @app_commands.command()
     async def daily(self, interaction: discord.Interaction):
         """Obtain a daily pack that contains a random countryball."""
+        await interaction.response.defer()
         can, rem = await self._can_claim(interaction.user.id, "daily", timedelta(days=1))
         if not can:
             await interaction.followup.send(f"You've already claimed a daily pack. Try again in {int(rem)}s.", ephemeral=True)
