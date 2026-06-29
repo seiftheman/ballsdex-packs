@@ -24,11 +24,11 @@ class PackCog(commands.GroupCog, name="pack"):
     def __init__(self, bot: "BallsDexBot"):
         self.bot = bot
 
-    async def _can_claim(self, discord_id: int, : str, cooldown: timedelta) -> tuple[bool, float]:
+    async def _can_claim(self, discord_id: int, type: str, cooldown: timedelta) -> tuple[bool, float]:
         """
         Returns (can_claim, seconds_remaining)
         """
-        latest = await Pack.objects.filter(discord_id=discord_id, =).order_by("-last_claim_date").afirst()
+        latest = await Pack.objects.filter(discord_id=discord_id, type=type).order_by("-last_claim_date").afirst()
         if not latest or not latest.last_claim_date:
             return True, 0.0
         delta = timezone.now() - latest.last_claim_date
@@ -83,7 +83,7 @@ class PackCog(commands.GroupCog, name="pack"):
     async def open(self, interaction: discord.Interaction, type: app_commands.Choice[str], amount: int = 1):
         """Open any of your owned packs."""
         await interaction.response.defer()
-        pack_qs = Pack.objects.filter(discord_id=interaction.user.id, =type.value)
+        pack_qs = Pack.objects.filter(discord_id=interaction.user.id, type=type.value)
         pack_count = await pack_qs.acount()
         if pack_count == 0:
             await interaction.followup.send("You don't have any packs yet.", ephemeral=True)
