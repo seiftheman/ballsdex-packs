@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "kind",
+                    "type",
                     models.CharField(
                         max_length=100,
                         help_text="Type of the pack.",
