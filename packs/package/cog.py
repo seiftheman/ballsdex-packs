@@ -58,6 +58,7 @@ class PackCog(commands.GroupCog, name="pack"):
     @app_commands.command()
     async def list(self, interaction: discord.Interaction):
         """Show counts of owned packs."""
+        await interaction.response.defer()
         daily_count = await Pack.objects.filter(discord_id=interaction.user.id, kind="daily").acount()
         weekly_count = await Pack.objects.filter(discord_id=interaction.user.id, kind="weekly").acount()
         if daily_count > 0 and weekly_count == 0:
