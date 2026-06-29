@@ -12,3 +12,6 @@ location = "git+https://github.com/seiftheman/ballsdex-packs.git#main"
 path = "packs"
 enabled = true
 ```
+## Discord Server
+
+https://discord.gg/Sagg5CejWX
