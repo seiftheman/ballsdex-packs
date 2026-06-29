@@ -24,14 +24,14 @@ class Migration(migrations.Migration):
                         help_text="Type of the pack.",
                     ),
                 ),
-                (
-                    "last_claim_date",
-                    models.DateTimeField(
-                        null=True,
-                        blank=True,
-                        help_text="When this pack was claimed (used for cooldown tracking).",
-                    ),
-                ),
+                # (
+                #     "last_claim_date",
+                #     models.DateTimeField(
+                #         null=True,
+                #         blank=True,
+                #         help_text="When this pack was claimed (used for cooldown tracking).",
+                #     ),
+                # ),
                 (
                     "discord_id",
                     models.BigIntegerField(
