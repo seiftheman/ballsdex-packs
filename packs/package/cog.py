@@ -55,10 +55,10 @@ class PackCog(commands.GroupCog, name="pack"):
     @app_commands.command()
     async def daily(self, interaction: discord.Interaction):
         """Obtain a daily pack that contains a random countryball."""
-        await interaction.response.defer()
+        # await interaction.response.defer()
         can, rem = await self._can_claim(interaction.user.id, "daily", timedelta(days=1))
         if not can:
-            await interaction.followup.send(f"You've already claimed a daily pack. Try again in {self._format_seconds(rem)}.", ephemeral=True)
+            await interaction.response.send_message(f"You've already claimed a daily pack. Try again in {self._format_seconds(rem)}.", ephemeral=True)
             return
         await Pack.objects.acreate(discord_id=interaction.user.id, type="daily", last_claim_date=timezone.now())
         await interaction.followup.send("You just claimed a daily pack!")
@@ -66,10 +66,10 @@ class PackCog(commands.GroupCog, name="pack"):
     @app_commands.command()
     async def weekly(self, interaction: discord.Interaction):
         """Obtain a weekly pack that contains a random countryball."""
-        await interaction.response.defer()
+        # await interaction.response.defer()
         can, rem = await self._can_claim(interaction.user.id, "weekly", timedelta(days=7))
         if not can:
-            await interaction.followup.send(
+            await interaction.response.send_message(
                 f"You've already claimed a weekly pack. Try again in {self._format_seconds(rem)}.",
                 ephemeral=True,
             )
@@ -79,22 +79,22 @@ class PackCog(commands.GroupCog, name="pack"):
             type="weekly",
             last_claim_date=timezone.now(),
         )
-        await interaction.followup.send("You just claimed a weekly pack!")
+        await interaction.response.send_message("You just claimed a weekly pack!")
     
     @app_commands.command()
     async def list(self, interaction: discord.Interaction):
         """View a list of your owned packs."""
-        await interaction.response.defer()
+        # await interaction.response.defer()
         daily_count = await Pack.objects.filter(discord_id=interaction.user.id, type="daily").acount()
         weekly_count = await Pack.objects.filter(discord_id=interaction.user.id, type="weekly").acount()
         if daily_count > 0 and weekly_count == 0:
-            await interaction.followup.send(f"Daily Packs: {daily_count}")   
+            await interaction.response.send_message(f"Daily Packs: {daily_count}")   
         elif weekly_count > 0 and daily_count == 0:
-            await interaction.followup.send(f"Weekly Packs: {weekly_count}")  
+            await interaction.response.send_message(f"Weekly Packs: {weekly_count}")  
         elif daily_count > 0 and weekly_count > 0:
-            await interaction.followup.send(f"Daily Packs: {daily_count}, Weekly Packs: {weekly_count}")
+            await interaction.response.send_message(f"Daily Packs: {daily_count}\nWeekly Packs: {weekly_count}")
         else:
-            await interaction.followup.send("You don't have any packs yet.")
+            await interaction.response.send_message("You don't have any packs yet.", ephemeral=True)
     
     @app_commands.command()
     @app_commands.choices(
