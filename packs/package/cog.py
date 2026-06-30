@@ -39,15 +39,20 @@ class PackCog(commands.GroupCog, name="pack"):
     
     def _format_seconds(self, seconds: float) -> str:
         total = int(seconds)
-        hours, remainder = divmod(total, 3600)
+        days, rem = divmod(total, 86400)
+        hours, remainder = divmod(rem, 3600)
         minutes, secs = divmod(remainder, 60)
 
         parts = []
+        if days:
+            parts.append(f"{days} day{'s' if days != 1 else ''}")
         if hours:
             parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
         if minutes:
             parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
 
+        if len(parts) == 1:
+            return parts[0]
         return " and ".join(", ".join(parts).rsplit(", ", 1))
     
     @app_commands.command()
