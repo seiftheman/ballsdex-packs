@@ -28,8 +28,8 @@ class PackCog(commands.GroupCog, name="pack"):
         """
         Returns (can_claim, seconds_remaining)
         """
-        latest = await Pack.objects.filter(discord_id=discord_id, type=type).order_by("-last_claim_date").afirst()
-        if not latest or not latest.last_claim_date:
+        latest = await Pack.objects.filter(discord_id=discord_id, type=type, last_claim_date__isnull=False,).order_by("-last_claim_date").afirst()
+        if not latest:
             return True, 0.0
         delta = timezone.now() - latest.last_claim_date
         if delta >= cooldown:
