@@ -47,8 +47,6 @@ class PackCog(commands.GroupCog, name="pack"):
             parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
         if minutes:
             parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
-        if secs or not parts:
-            parts.append(f"{secs} second{'s' if secs != 1 else ''}")
 
         return " and ".join(", ".join(parts).rsplit(", ", 1))
     
