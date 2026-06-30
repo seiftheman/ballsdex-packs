@@ -127,7 +127,9 @@ class PackCog(commands.GroupCog, name="pack"):
             return
 
         pack_ids = [pid async for pid in pack_qs.values_list("id", flat=True)[:amount]]
+        log.debug(f"Found {len(pack_ids)} packs to delete: {pack_ids}")
         await Pack.objects.filter(id__in=pack_ids).adelete()
+        log.debug(f"Deleted {len(pack_ids)} packs.")
 
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
         balls = [ball async for ball in Ball.objects.all()]
