@@ -37,13 +37,28 @@ class PackCog(commands.GroupCog, name="pack"):
         remaining = (cooldown - delta).total_seconds()
         return False, remaining
     
+    def _format_seconds(self, seconds: float) -> str:
+        total = int(seconds)
+        hours, remainder = divmod(total, 3600)
+        minutes, secs = divmod(remainder, 60)
+
+        parts = []
+        if hours:
+            parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+        if minutes:
+            parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+        if secs or not parts:
+            parts.append(f"{secs} second{'s' if secs != 1 else ''}")
+
+        return " and ".join(", ".join(parts).rsplit(", ", 1))
+    
     @app_commands.command()
     async def daily(self, interaction: discord.Interaction):
         """Obtain a daily pack that contains a random countryball."""
         await interaction.response.defer()
         can, rem = await self._can_claim(interaction.user.id, "daily", timedelta(days=1))
         if not can:
-            await interaction.followup.send(f"You've already claimed a daily pack. Try again in {int(rem)}s.", ephemeral=True)
+            await interaction.followup.send(f"You've already claimed a daily pack. Try again in {self._format_seconds(rem)}.", ephemeral=True)
             return
         await Pack.objects.acreate(discord_id=interaction.user.id, type="daily", last_claim_date=timezone.now())
         await interaction.followup.send("You just claimed a daily pack!")
@@ -55,7 +70,7 @@ class PackCog(commands.GroupCog, name="pack"):
         can, rem = await self._can_claim(interaction.user.id, "weekly", timedelta(days=7))
         if not can:
             await interaction.followup.send(
-                f"You've already claimed a weekly pack. Try again in {int(rem)}s.",
+                f"You've already claimed a weekly pack. Try again in {self._format_seconds(rem)}.",
                 ephemeral=True,
             )
             return
