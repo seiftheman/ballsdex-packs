@@ -49,7 +49,6 @@ class PackCog(commands.GroupCog, name="pack"):
         await interaction.followup.send("You just claimed a daily pack!")
 
     @app_commands.command()
-    @app_commands.checks.cooldown(1, 604800, key=lambda i: i.user.id)
     async def weekly(self, interaction: discord.Interaction):
         """Obtain a weekly pack that contains a random countryball."""
         await interaction.response.defer()
@@ -72,7 +71,7 @@ class PackCog(commands.GroupCog, name="pack"):
         """View a list of your owned packs."""
         await interaction.response.defer()
         daily_count = await Pack.objects.filter(discord_id=interaction.user.id, type="daily").acount()
-        weekly_count = await Pack.objects.filter(discord_id=interaction.user.id, type="daily").acount()
+        weekly_count = await Pack.objects.filter(discord_id=interaction.user.id, type="weekly").acount()
         if daily_count > 0 and weekly_count == 0:
             await interaction.followup.send(f"Daily Packs: {daily_count}")   
         elif weekly_count > 0 and daily_count == 0:
