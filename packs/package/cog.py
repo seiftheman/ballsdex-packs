@@ -13,7 +13,7 @@ from discord import app_commands
 from discord.ext import commands
 from bd_models.models import Ball, BallInstance, Player
 from settings.models import settings
-from ..models import Pack
+from packs.models import Pack
 
 if TYPE_CHECKING:
     from ballsdex.core.bot import BallsDexBot
@@ -126,24 +126,17 @@ class PackCog(commands.GroupCog, name="pack"):
             )
             return
 
-        packs_to_delete = []
-        async for pack in pack_qs[:amount]:
-            packs_to_delete.append(pack.pk)
-        
+        packs_to_delete = [pk async for pk in pack_qs[:amount].values_list('pk', flat=True)]
         await Pack.objects.filter(pk__in=packs_to_delete).adelete()
 
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
         balls = [ball async for ball in Ball.objects.all()]
 
-        num_balls_to_select = min(amount, len(balls))
-        selected_balls = random.sample(balls, num_balls_to_select)
-        
-        balls_to_open = (selected_balls * ((amount // len(selected_balls)) + 1))[:amount]
-
         results = []
         any_new = False
         new_balls = []
-        for ball in balls_to_open:
+        for _ in range(amount):
+            ball = random.choice(balls)
             is_new = not await BallInstance.objects.filter(player=player, ball=ball).aexists()
             if is_new:
                 any_new = True
