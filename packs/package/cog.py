@@ -64,7 +64,7 @@ class PackCog(commands.GroupCog, name="pack"):
             await interaction.response.send_message(f"You've already claimed a daily pack. Try again in {self._format_seconds(rem)}.", ephemeral=True)
             return
         await Pack.objects.acreate(discord_id=interaction.user.id, type="daily", last_claim_date=timezone.now())
-        await interaction.followup.send("You just claimed a daily pack!")
+        await interaction.response.send_message("You just claimed a daily pack!")
 
     @app_commands.command()
     async def weekly(self, interaction: discord.Interaction):
@@ -126,8 +126,8 @@ class PackCog(commands.GroupCog, name="pack"):
             )
             return
 
-        packs_to_delete = pack_qs[:amount]
-        await Pack.objects.filter(pk__in=packs_to_delete.values_list('pk', flat=True)).adelete()
+        packs_to_delete = [pk async for pk in pack_qs[:amount].values_list('pk', flat=True)]
+        await Pack.objects.filter(pk__in=packs_to_delete).adelete()
 
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
         balls = [ball async for ball in Ball.objects.all()]
