@@ -126,17 +126,28 @@ class PackCog(commands.GroupCog, name="pack"):
             )
             return
 
-        packs_to_delete = [pk async for pk in pack_qs[:amount].values_list('pk', flat=True)]
+        # Get the IDs of packs to delete (need to fetch them first)
+        packs_to_delete = []
+        async for pack in pack_qs[:amount]:
+            packs_to_delete.append(pack.pk)
+        
+        # Delete the packs
         await Pack.objects.filter(pk__in=packs_to_delete).adelete()
 
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
         balls = [ball async for ball in Ball.objects.all()]
 
+        # Select unique balls for this opening (prevent duplicates)
+        num_balls_to_select = min(amount, len(balls))
+        selected_balls = random.sample(balls, num_balls_to_select)
+        
+        # If opening more packs than unique balls, cycle through the selection
+        balls_to_open = (selected_balls * ((amount // len(selected_balls)) + 1))[:amount]
+
         results = []
         any_new = False
         new_balls = []
-        for _ in range(amount):
-            ball = random.choice(balls)
+        for ball in balls_to_open:
             is_new = not await BallInstance.objects.filter(player=player, ball=ball).aexists()
             if is_new:
                 any_new = True
