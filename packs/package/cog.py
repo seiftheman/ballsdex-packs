@@ -126,7 +126,8 @@ class PackCog(commands.GroupCog, name="pack"):
             )
             return
 
-        packs_to_delete = await pack_qs[:amount].avalues_list('pk', flat=True)
+        all_pks = [pk async for pk in pack_qs.values_list('pk', flat=True)]
+        packs_to_delete = all_pks[:amount]
         await Pack.objects.filter(pk__in=packs_to_delete).adelete()
 
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
