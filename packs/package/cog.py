@@ -13,7 +13,7 @@ from discord import app_commands
 from discord.ext import commands
 from bd_models.models import Ball, BallInstance, Player
 from settings.models import settings
-from packs.models import Pack
+from ..models import Pack
 
 if TYPE_CHECKING:
     from ballsdex.core.bot import BallsDexBot
