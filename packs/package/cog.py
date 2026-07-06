@@ -1,3 +1,15 @@
+"""Pack-related Discord application commands.
+
+This module provides a cog that implements pack claims and opening for the
+BallsDex Discord bot. Commands included:
+
+- /pack daily: claim a daily pack (if not on cooldown)
+- /pack weekly: claim a weekly pack (if not on cooldown)
+- /pack list: list the user's available daily/weekly packs
+- /pack open: open one or more packs and grant BallInstances to the user
+
+Internal helpers are provided to check cooldowns and format durations.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -20,11 +32,34 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("ballsdex.packages.packs")
 
+
 class PackCog(commands.GroupCog, name="pack"):
+    """Cog providing pack-related commands.
+
+    The cog exposes slash commands under the `/pack` group for claiming
+    daily/weekly packs, listing owned packs, and opening packs to receive
+    BallInstances. It stores minimal state in the database and enforces
+    cooldowns for claimable packs.
+    """
+
     def __init__(self, bot: "BallsDexBot"):
+        """Create a new PackCog.
+
+        Args:
+            bot: The BallsDexBot instance this cog is attached to.
+        """
         self.bot = bot
 
     async def _can_claim(self, discord_id: int, type: str, cooldown: timedelta) -> tuple[bool, float]:
+        """Return whether the given Discord user can claim a pack.
+
+        Looks up the most recent Pack for the user of the given type and
+        compares its last_claim_date against the provided cooldown.
+
+        Returns a tuple (can_claim, remaining_seconds) where `can_claim` is
+        True when the user may claim now and `remaining_seconds` provides
+        the time left until claim is allowed (0.0 when can_claim is True).
+        """
         latest = await Pack.objects.filter(discord_id=discord_id, type=type, last_claim_date__isnull=False,).order_by("-last_claim_date").afirst()
         if not latest:
             return True, 0.0
@@ -35,6 +70,12 @@ class PackCog(commands.GroupCog, name="pack"):
         return False, remaining
     
     def _format_seconds(self, seconds: float) -> str:
+        """Human-readable formatting for a seconds-based duration.
+
+        Formats seconds into a short string such as "1 day and 2 hours" or
+        "45 minutes". Omits zero-valued units and uses natural English
+        conjunctions.
+        """
         total = int(seconds)
         days, rem = divmod(total, 86400)
         hours, remainder = divmod(rem, 3600)
@@ -54,6 +95,12 @@ class PackCog(commands.GroupCog, name="pack"):
     
     @app_commands.command()
     async def daily(self, interaction: discord.Interaction):
+        """Claim a daily pack.
+
+        Enforces a 24-hour cooldown between claims. If the user is still on
+        cooldown a helpful ephemeral message is sent indicating when they
+        may claim again.
+        """
         can, rem = await self._can_claim(interaction.user.id, "daily", timedelta(days=1))
         if not can:
             await interaction.response.send_message(f"You've already claimed a daily pack. Try again in {self._format_seconds(rem)}.", ephemeral=True)
@@ -63,6 +110,11 @@ class PackCog(commands.GroupCog, name="pack"):
 
     @app_commands.command()
     async def weekly(self, interaction: discord.Interaction):
+        """Claim a weekly pack.
+
+        Enforces a 7-day cooldown between claims. Behaves similarly to
+        `daily` but with a longer cooldown.
+        """
         can, rem = await self._can_claim(interaction.user.id, "weekly", timedelta(days=7))
         if not can:
             await interaction.response.send_message(
@@ -79,6 +131,10 @@ class PackCog(commands.GroupCog, name="pack"):
     
     @app_commands.command()
     async def list(self, interaction: discord.Interaction):
+        """List the user's owned daily and weekly packs.
+
+        Sends an ephemeral message when the user does not have any packs.
+        """
         daily_count = await Pack.objects.filter(discord_id=interaction.user.id, type="daily").acount()
         weekly_count = await Pack.objects.filter(discord_id=interaction.user.id, type="weekly").acount()
         if daily_count > 0 and weekly_count == 0:
@@ -102,6 +158,19 @@ class PackCog(commands.GroupCog, name="pack"):
         amount="Amount of packs you want to open."
     )
     async def open(self, interaction: discord.Interaction, type: app_commands.Choice[str], amount: int = 1):
+        """Open one or more packs for the invoking user.
+
+        This will remove the specified number of packs from the user's
+        inventory, create BallInstance rows for each packed ball, and send a
+        message describing the results. If the user receives any Ball they
+        did not previously own, the message will highlight the new
+        collectible(s).
+
+        Args:
+            interaction: The Discord interaction that invoked the command.
+            type: Choice object indicating the pack type to open (daily/weekly).
+            amount: Number of packs to open (defaults to 1).
+        """
         await interaction.response.defer()
         pack_qs = Pack.objects.filter(discord_id=interaction.user.id, type=type.value)
         pack_count = await pack_qs.acount()
