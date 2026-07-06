@@ -126,13 +126,14 @@ class PackCog(commands.GroupCog, name="pack"):
         await Pack.objects.filter(pk__in=packs_to_consume).aupdate(is_opened=True)
 
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
-        balls = [ball async for ball in Ball.objects.all()]
+        balls = [ball async for ball in Ball.objects.filter(enabled=True)]
+        weights = [ball.rarity for ball in balls]
 
         results = []
         any_new = False
         new_balls = []
         for _ in range(amount):
-            ball = random.choice(balls)
+            ball = random.choices(balls, weights=weights, k=1)[0]
             is_new = not await BallInstance.objects.filter(player=player, ball=ball).aexists()
             if is_new:
                 any_new = True
