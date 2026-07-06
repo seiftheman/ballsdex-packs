@@ -25,9 +25,6 @@ class PackCog(commands.GroupCog, name="pack"):
         self.bot = bot
 
     async def _can_claim(self, discord_id: int, type: str, cooldown: timedelta) -> tuple[bool, float]:
-        """
-        Returns (can_claim, seconds_remaining)
-        """
         latest = await Pack.objects.filter(discord_id=discord_id, type=type, last_claim_date__isnull=False,).order_by("-last_claim_date").afirst()
         if not latest:
             return True, 0.0
@@ -57,8 +54,6 @@ class PackCog(commands.GroupCog, name="pack"):
     
     @app_commands.command()
     async def daily(self, interaction: discord.Interaction):
-        """Obtain a daily pack that contains a random countryball."""
-        # await interaction.response.defer()
         can, rem = await self._can_claim(interaction.user.id, "daily", timedelta(days=1))
         if not can:
             await interaction.response.send_message(f"You've already claimed a daily pack. Try again in {self._format_seconds(rem)}.", ephemeral=True)
@@ -68,8 +63,6 @@ class PackCog(commands.GroupCog, name="pack"):
 
     @app_commands.command()
     async def weekly(self, interaction: discord.Interaction):
-        """Obtain a weekly pack that contains a random countryball."""
-        # await interaction.response.defer()
         can, rem = await self._can_claim(interaction.user.id, "weekly", timedelta(days=7))
         if not can:
             await interaction.response.send_message(
@@ -86,8 +79,6 @@ class PackCog(commands.GroupCog, name="pack"):
     
     @app_commands.command()
     async def list(self, interaction: discord.Interaction):
-        """View a list of your owned packs."""
-        # await interaction.response.defer()
         daily_count = await Pack.objects.filter(discord_id=interaction.user.id, type="daily").acount()
         weekly_count = await Pack.objects.filter(discord_id=interaction.user.id, type="weekly").acount()
         if daily_count > 0 and weekly_count == 0:
@@ -111,7 +102,6 @@ class PackCog(commands.GroupCog, name="pack"):
         amount="Amount of packs you want to open."
     )
     async def open(self, interaction: discord.Interaction, type: app_commands.Choice[str], amount: int = 1):
-        """Open any of your owned packs."""
         await interaction.response.defer()
         pack_qs = Pack.objects.filter(discord_id=interaction.user.id, type=type.value)
         pack_count = await pack_qs.acount()
@@ -126,8 +116,14 @@ class PackCog(commands.GroupCog, name="pack"):
             )
             return
 
-        all_pks = [pk async for pk in pack_qs.values_list('pk', flat=True)]
+        all_pks = [pk async for pk in pack_qs.order_by("last_claim_date").values_list('pk', flat=True)]
         packs_to_delete = all_pks[:amount]
+        anchor = await pack_qs.filter(last_claim_date__isnull=False).afirst()
+        
+        if anchor and anchor.pk in packs_to_delete:
+            if len(packs_to_delete) < pack_count:
+                packs_to_delete.remove(anchor.pk)
+
         await Pack.objects.filter(pk__in=packs_to_delete).adelete()
 
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
