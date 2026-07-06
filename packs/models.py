@@ -10,3 +10,7 @@ class Pack(models.Model):
         blank=True,
         help_text="When this pack was claimed (used for cooldown tracking)."
     )
+    is_opened = models.BooleanField(
+        default=False, 
+        help_text="Whether this pack has already been opened."
+    )

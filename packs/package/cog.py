@@ -25,9 +25,6 @@ class PackCog(commands.GroupCog, name="pack"):
         self.bot = bot
 
     async def _can_claim(self, discord_id: int, type: str, cooldown: timedelta) -> tuple[bool, float]:
-        """
-        Returns (can_claim, seconds_remaining)
-        """
         latest = await Pack.objects.filter(discord_id=discord_id, type=type, last_claim_date__isnull=False,).order_by("-last_claim_date").afirst()
         if not latest:
             return True, 0.0
@@ -85,8 +82,8 @@ class PackCog(commands.GroupCog, name="pack"):
     @app_commands.command()
     async def list(self, interaction: discord.Interaction):
         """View a list of your owned packs."""
-        daily_count = await Pack.objects.filter(discord_id=interaction.user.id, type="daily").acount()
-        weekly_count = await Pack.objects.filter(discord_id=interaction.user.id, type="weekly").acount()
+        daily_count = await Pack.objects.filter(discord_id=interaction.user.id, type="daily", is_opened=False).acount()
+        weekly_count = await Pack.objects.filter(discord_id=interaction.user.id, type="weekly", is_opened=False).acount()
         if daily_count > 0 and weekly_count == 0:
             await interaction.response.send_message(f"Daily Packs: {daily_count}")   
         elif weekly_count > 0 and daily_count == 0:
@@ -110,7 +107,7 @@ class PackCog(commands.GroupCog, name="pack"):
     async def open(self, interaction: discord.Interaction, type: app_commands.Choice[str], amount: int = 1):
         """Open any of your owned packs."""
         await interaction.response.defer()
-        pack_qs = Pack.objects.filter(discord_id=interaction.user.id, type=type.value)
+        pack_qs = Pack.objects.filter(discord_id=interaction.user.id, type=type.value, is_opened=False)
         pack_count = await pack_qs.acount()
         if pack_count == 0:
             await interaction.followup.send("You don't have any packs yet.", ephemeral=True)
@@ -124,14 +121,9 @@ class PackCog(commands.GroupCog, name="pack"):
             return
 
         all_pks = [pk async for pk in pack_qs.order_by("last_claim_date").values_list('pk', flat=True)]
-        packs_to_delete = all_pks[:amount]
-        anchor = await pack_qs.filter(last_claim_date__isnull=False).afirst()
+        packs_to_consume = all_pks[:amount]
         
-        if anchor and anchor.pk in packs_to_delete:
-            if len(packs_to_delete) < pack_count:
-                packs_to_delete.remove(anchor.pk)
-
-        await Pack.objects.filter(pk__in=packs_to_delete).adelete()
+        await Pack.objects.filter(pk__in=packs_to_consume).aupdate(is_opened=True)
 
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
         balls = [ball async for ball in Ball.objects.all()]
