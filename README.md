@@ -1,6 +1,6 @@
 # ballsdex-packs
 
-Packs package for Ballsdex v3.0.
+**A Ballsdex extension package that adds a pack collection and opening system.** Users can claim daily and weekly packs via `/pack daily` and `/pack weekly` commands.
 
 ## Installation
 
