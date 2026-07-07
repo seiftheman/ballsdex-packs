@@ -178,3 +178,48 @@ class PackCog(commands.GroupCog, name="pack"):
                     )
 
         await interaction.followup.send(message)
+
+    @app_commands.command()
+    @app_commands.choices(
+        type=[
+            app_commands.Choice(name="Daily", value="daily"),
+            app_commands.Choice(name="Weekly", value="weekly"),
+        ]
+    )
+    @app_commands.describe(
+        type="Type of the pack you want to open.",
+        user="User you want to give packs to.",
+        amount="Amount of packs you want to open."
+    )
+    async def give(self, interaction: discord.Interaction, type: app_commands.Choice[str], user: discord.User, amount: int = 1):
+        """Give packs to another user."""    
+        if user.bot:
+            await interaction.response.send_message("You cannot give packs to bots.", ephemeral=True)
+            return
+
+        if user.id == interaction.user.id:
+            await interaction.response.send_message("You cannot give packs to yourself.", ephemeral=True)
+            return
+
+        pack_qs = Pack.objects.filter(discord_id=interaction.user.id, type=type.value, is_opened=False)
+        pack_count = await pack_qs.acount()
+        if pack_count == 0:
+            await interaction.response.send_message("You don't have any packs yet.", ephemeral=True)
+            return
+
+        if amount > pack_count:
+            await interaction.response.send_message(
+                f"You only have {pack_count} {type.value} pack(s) to give.",
+                ephemeral=True
+            )
+            return
+
+        all_pks = [pk async for pk in pack_qs.order_by("last_claim_date").values_list('pk', flat=True)]
+        packs_to_give = all_pks[:amount]
+        
+        await Pack.objects.filter(pk__in=packs_to_give).aupdate(discord_id=user.id)
+
+        await interaction.response.send_message(
+            f"You gave {amount} {type.value} pack(s) to {user.mention}!",
+            ephemeral=True
+        )
