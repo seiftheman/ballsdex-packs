@@ -110,13 +110,12 @@ class PackCog(commands.GroupCog, name="pack"):
         pack_qs = Pack.objects.filter(discord_id=interaction.user.id, type=type.value, is_opened=False)
         pack_count = await pack_qs.acount()
         if pack_count == 0:
-            await interaction.followup.send("You don't have any packs yet.", ephemeral=True)
+            await interaction.followup.send("You don't have any packs yet.")
             return
 
         if amount > pack_count:
             await interaction.followup.send(
-                f"You only have {pack_count} {type.value} pack(s) to open.",
-                ephemeral=True
+                f"You only have {pack_count} {type.value} pack(s) to open."
             )
             return
 
@@ -192,25 +191,25 @@ class PackCog(commands.GroupCog, name="pack"):
         amount="Amount of packs you want to open."
     )
     async def give(self, interaction: discord.Interaction, type: app_commands.Choice[str], user: discord.User, amount: int = 1):
-        """Give packs to another user."""    
+        """Give packs to another user."""
+        await interaction.response.defer()
         if user.bot:
-            await interaction.response.send_message("You cannot give packs to bots.", ephemeral=True)
+            await interaction.followup.send("You cannot give packs to bots.")
             return
 
         if user.id == interaction.user.id:
-            await interaction.response.send_message("You cannot give packs to yourself.", ephemeral=True)
+            await interaction.followup.send("You cannot give packs to yourself.")
             return
 
         pack_qs = Pack.objects.filter(discord_id=interaction.user.id, type=type.value, is_opened=False)
         pack_count = await pack_qs.acount()
         if pack_count == 0:
-            await interaction.response.send_message("You don't have any packs yet.", ephemeral=True)
+            await interaction.followup.send("You don't have any packs yet.")
             return
 
         if amount > pack_count:
-            await interaction.response.send_message(
-                f"You only have {pack_count} {type.value} pack(s) to give.",
-                ephemeral=True
+            await interaction.followup.send(
+                f"You only have {pack_count} {type.value} pack(s) to give."
             )
             return
 
@@ -219,7 +218,6 @@ class PackCog(commands.GroupCog, name="pack"):
         
         await Pack.objects.filter(pk__in=packs_to_give).aupdate(discord_id=user.id)
 
-        await interaction.response.send_message(
-            f"You gave {amount} {type.value} pack(s) to {user.mention}!",
-            ephemeral=True
+        await interaction.followup.send(
+            f"You gave {amount} {type.value} pack(s) to {user.mention}!"
         )
