@@ -248,8 +248,14 @@ class PackCog(commands.GroupCog, name="pack"):
         user="User you want to give packs to.",
         amount="Amount of packs you want to give."
     )
+    @app_commands.choices(
+        type=[
+            app_commands.Choice(name="Daily", value="daily"),
+            app_commands.Choice(name="Weekly", value="weekly"),
+        ]
+    )
     async def give(self, interaction: discord.Interaction, type: app_commands.Choice[str], user: discord.User, amount: int = 1):
-        """Give packs to another user."""
+        """Give packs to a user."""
         await interaction.response.defer(ephemeral=True)
         if user.bot:
             await interaction.followup.send("You cannot give packs to bots.")
