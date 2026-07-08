@@ -21,9 +21,28 @@ if TYPE_CHECKING:
 log = logging.getLogger("ballsdex.packages.packs")
 
 class PackCog(commands.GroupCog, name="pack"):
+    """Pack commands."""
     def __init__(self, bot: "BallsDexBot"):
         self.bot = bot
 
+    admin = app_commands.Group(name="admin", description="Pack administration commands.")
+
+    def admin_permissions_check():
+        """Custom permission check for admin commands that works with interactions."""
+        async def check(interaction: discord.Interaction["BallsDexBot"]) -> bool:
+            from users.utils import get_user_model
+            
+            try:
+                user_model = get_user_model()
+                dj_user = await user_model.objects.filter(discord_id=interaction.user.id).aget()
+                if not dj_user.is_active:
+                    return False
+                # Since packs give collectibles, you gonna need "Add BallInstance" permission.
+                return await dj_user.ahas_perms(["bd_models.add_ballinstance"])
+            except user_model.DoesNotExist:
+                return False
+        return app_commands.check(check)
+    
     async def _can_claim(self, discord_id: int, type: str, cooldown: timedelta) -> tuple[bool, float]:
         latest = await Pack.objects.filter(discord_id=discord_id, type=type, last_claim_date__isnull=False,).order_by("-last_claim_date").afirst()
         if not latest:
@@ -221,3 +240,34 @@ class PackCog(commands.GroupCog, name="pack"):
         await interaction.followup.send(
             f"You gave {amount} {type.value} pack(s) to {user.mention}!"
         )
+
+    @admin.command()
+    @admin_permissions_check()
+    @app_commands.describe(
+        type="Type of the pack you want to give.",
+        user="User you want to give packs to.",
+        amount="Amount of packs you want to give."
+    )
+    async def give(self, interaction: discord.Interaction, type: app_commands.Choice[str], user: discord.User, amount: int = 1):
+        """Give packs to another user."""
+        await interaction.response.defer(ephemeral=True)
+        if user.bot:
+            await interaction.followup.send("You cannot give packs to bots.")
+            return
+
+        if amount <= 0:
+            await interaction.followup.send("Amount must be greater than 0.")
+            return
+
+        for _ in range(amount):
+            # I don't think last_claim_date should be added since the pack(s) is(are) admin-given, should it?
+            await Pack.objects.acreate(discord_id=user.id, type=type.value)
+
+        if amount == 1:
+            await interaction.followup.send(
+                f"{amount} {type.value} pack has been given to {user.mention}."
+            )
+        else:
+            await interaction.followup.send(
+                f"{amount} {type.value} packs have been given to {user.mention}."
+            )
