@@ -42,6 +42,7 @@ jobs:
           if [ -z "$LATEST" ]; then
             echo "No previous release tags found — releasing $VERSION."
             echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "previous_tag=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -49,18 +50,12 @@ jobs:
           if [ "$HIGHEST" = "$VERSION" ] && [ "$VERSION" != "$LATEST" ]; then
             echo "Version increased: $LATEST -> $VERSION."
             echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "previous_tag=v$LATEST" >> "$GITHUB_OUTPUT"
           else
             echo "Version did not increase ($LATEST -> $VERSION) — skipping release."
             echo "should_release=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create GitHub release
-        if: steps.check.outputs.should_release == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          gh release create "v$VERSION" \
-            --target "${{ github.sha }}" \
-            --title "v$VERSION" \
-            --generate-notes
+      - name: Generate changelog from commits
+        if: steps.check.outputs.should_release == 'true'](#)
+
