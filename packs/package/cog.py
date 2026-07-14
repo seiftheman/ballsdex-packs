@@ -27,6 +27,8 @@ class PackCog(commands.GroupCog, name="pack"):
 
     admin = app_commands.Group(name="admin", description="Pack administration commands.")
 
+    DEFAULT_PACK_RARITY: dict[str, tuple[float | None, float | None]] = {}
+
     def admin_permissions_check():
         """Custom permission check for admin commands that works with interactions."""
         async def check(interaction: discord.Interaction["BallsDexBot"]) -> bool:
@@ -42,6 +44,19 @@ class PackCog(commands.GroupCog, name="pack"):
             except user_model.DoesNotExist:
                 return False
         return app_commands.check(check)
+    
+    def _default_pack_rarity(self, pack_type: str) -> tuple[float | None, float | None]:
+        return self.DEFAULT_PACK_RARITY.get(pack_type, (None, None))
+
+    async def _create_pack(self, discord_id: int, type: str, last_claim_date=None) -> Pack:
+        min_rarity, max_rarity = self._default_pack_rarity(type)
+        return await Pack.objects.acreate(
+            discord_id=discord_id,
+            type=type,
+            last_claim_date=last_claim_date,
+            min_rarity=min_rarity,
+            max_rarity=max_rarity,
+        )
     
     async def _can_claim(self, discord_id: int, type: str, cooldown: timedelta) -> tuple[bool, float]:
         latest = await Pack.objects.filter(discord_id=discord_id, type=type, last_claim_date__isnull=False,).order_by("-last_claim_date").afirst()
@@ -76,9 +91,9 @@ class PackCog(commands.GroupCog, name="pack"):
         """Obtain a daily pack that contains a random countryball."""
         can, rem = await self._can_claim(interaction.user.id, "daily", timedelta(days=1))
         if not can:
-            await interaction.response.send_message(f"You've already claimed a daily pack. Try again in {self._format_seconds(rem)}.", ephemeral=True)
+            await interaction.response.send_message(f"You have already claimed a daily pack. Try again in {self._format_seconds(rem)}.", ephemeral=True)
             return
-        await Pack.objects.acreate(discord_id=interaction.user.id, type="daily", last_claim_date=timezone.now())
+        await self._create_pack(interaction.user.id, "daily", last_claim_date=timezone.now())
         await interaction.response.send_message("You just claimed a daily pack!")
 
     @app_commands.command()
@@ -87,15 +102,11 @@ class PackCog(commands.GroupCog, name="pack"):
         can, rem = await self._can_claim(interaction.user.id, "weekly", timedelta(days=7))
         if not can:
             await interaction.response.send_message(
-                f"You've already claimed a weekly pack. Try again in {self._format_seconds(rem)}.",
+                f"You have already claimed a weekly pack. Try again in {self._format_seconds(rem)}.",
                 ephemeral=True,
             )
             return
-        await Pack.objects.acreate(
-            discord_id=interaction.user.id,
-            type="weekly",
-            last_claim_date=timezone.now(),
-        )
+        await self._create_pack(interaction.user.id, "weekly", last_claim_date=timezone.now())
         await interaction.response.send_message("You just claimed a weekly pack!")
     
     @app_commands.command()
@@ -126,31 +137,33 @@ class PackCog(commands.GroupCog, name="pack"):
     async def open(self, interaction: discord.Interaction, type: app_commands.Choice[str], amount: int = 1):
         """Open any of your owned packs."""
         await interaction.response.defer()
-        pack_qs = Pack.objects.filter(discord_id=interaction.user.id, type=type.value, is_opened=False)
-        pack_count = await pack_qs.acount()
-        if pack_count == 0:
-            await interaction.followup.send("You don't have any packs yet.")
+        pack_objs = [pack async for pack in Pack.objects.filter(discord_id=interaction.user.id, type=type.value, is_opened=False).order_by("last_claim_date")]
+        if not pack_objs:
+            await interaction.followup.send("You do not have any packs yet.")
             return
 
-        if amount > pack_count:
+        if amount > len(pack_objs):
             await interaction.followup.send(
-                f"You only have {pack_count} {type.value} pack(s) to open."
+                f"You only have {len(pack_objs)} {type.value} pack(s) to open."
             )
             return
 
-        all_pks = [pk async for pk in pack_qs.order_by("last_claim_date").values_list('pk', flat=True)]
-        packs_to_consume = all_pks[:amount]
-        
-        await Pack.objects.filter(pk__in=packs_to_consume).aupdate(is_opened=True)
-
+        packs_to_consume = pack_objs[:amount]
         player, created = await Player.objects.aget_or_create(discord_id=interaction.user.id)
-        balls = [ball async for ball in Ball.objects.filter(enabled=True)]
-        weights = [ball.rarity for ball in balls]
 
         results = []
         any_new = False
         new_balls = []
-        for _ in range(amount):
+        for pack in packs_to_consume:
+            balls_query = Ball.objects.filter(enabled=True)
+            if pack.min_rarity is not None:
+                balls_query = balls_query.filter(rarity__gte=pack.min_rarity)
+            if pack.max_rarity is not None:
+                balls_query = balls_query.filter(rarity__lte=pack.max_rarity)
+
+            balls = [ball async for ball in balls_query]
+
+            weights = [ball.rarity for ball in balls]
             ball = random.choices(balls, weights=weights, k=1)[0]
             is_new = not await BallInstance.objects.filter(player=player, ball=ball).aexists()
             if is_new:
@@ -170,6 +183,8 @@ class PackCog(commands.GroupCog, name="pack"):
             results.append(
                 f"**{instance.ball.country}** ``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``"
             )
+        
+        await Pack.objects.filter(pk__in=[pack.pk for pack in packs_to_consume]).aupdate(is_opened=True)
         
         message = (
             f"**{type.value.capitalize()} Pack**\n"
@@ -237,9 +252,14 @@ class PackCog(commands.GroupCog, name="pack"):
         
         await Pack.objects.filter(pk__in=packs_to_give).aupdate(discord_id=user.id)
 
-        await interaction.followup.send(
-            f"You gave {amount} {type.value} pack(s) to {user.mention}!"
-        )
+        if amount == 1:
+            await interaction.followup.send(
+                f"You have given {amount} {type.value} pack to {user.mention}!"
+            )
+        else:
+            await interaction.followup.send(
+                f"You have given {amount} {type.value} packs to {user.mention}!"
+            )
 
     @admin.command()
     @admin_permissions_check()
@@ -258,11 +278,11 @@ class PackCog(commands.GroupCog, name="pack"):
         """Give packs to a user."""
         await interaction.response.defer(ephemeral=True)
         if user.bot:
-            await interaction.followup.send("You cannot give packs to bots.")
+            await interaction.followup.send("Sorry, you cannot give packs to bots.")
             return
 
         if amount <= 0:
-            await interaction.followup.send("Amount must be greater than 0.")
+            await interaction.followup.send("Sorry, amount must be greater than 0.")
             return
 
         for _ in range(amount):
@@ -277,3 +297,37 @@ class PackCog(commands.GroupCog, name="pack"):
             await interaction.followup.send(
                 f"{amount} {type.value} packs have been given to {user.mention}."
             )
+
+    @admin.command()
+    @admin_permissions_check()
+    @app_commands.describe(
+        type="Type of the pack to set rarity to.",
+        min="Minimum rarity for balls from this pack.",
+        max="Maximum rarity for balls from this pack."
+    )
+    @app_commands.choices(
+        type=[
+            app_commands.Choice(name="Daily", value="daily"),
+            app_commands.Choice(name="Weekly", value="weekly"),
+        ]
+    )
+    async def set_rarity(self, interaction: discord.Interaction, type: app_commands.Choice[str], min: float, max: float):
+        """Set """
+        await interaction.response.defer(ephemeral=True)
+
+        if min < 0 or max < 0:
+            await interaction.followup.send("Sorry, rarity values must be 0 or greater.")
+            return
+
+        if min > max:
+            await interaction.followup.send("Sorry, minimum rarity cannot be higher than maximum rarity.")
+            return
+
+        self.DEFAULT_PACK_RARITY[type.value] = (min, max)
+        await Pack.objects.filter(type=type.value, is_opened=False).aupdate(
+            min_rarity=min, max_rarity=max
+        )
+
+        await interaction.followup.send(
+            f" Done, I have updated the rarity range of the balls packed from the {type.value} pack to {min:.1f} to {max:.1f}."
+        )

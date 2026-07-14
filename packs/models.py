@@ -10,6 +10,14 @@ class Pack(models.Model):
         blank=True,
         help_text="When this pack was claimed (used for cooldown tracking)."
     )
+    min_rarity = models.FloatField(
+        null=True,
+        help_text="Minimum rarity for balls in this pack."
+    )
+    max_rarity = models.FloatField(
+        null=True,
+        help_text="Maximum rarity for balls in this pack."
+    )
     is_opened = models.BooleanField(
         default=False, 
         help_text="Whether this pack has already been opened."
