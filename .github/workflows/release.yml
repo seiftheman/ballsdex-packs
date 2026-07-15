@@ -56,5 +56,59 @@ jobs:
             echo "should_release=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Generate changelog from commits
-        if: steps.check.outputs.should_release == 'true'](#)
+      - name: Generate changelog
+        if: steps.check.outputs.should_release == 'true'
+        id: changelog
+        run: |
+          PREVIOUS_TAG="${{ steps.check.outputs.previous_tag }}"
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"%s" --reverse)
+          else
+            COMMITS=$(git log "$PREVIOUS_TAG..HEAD" --pretty=format:"%s" --reverse)
+          fi
+          
+          {
+            echo "FEATURES<<EOF"
+            echo "$COMMITS" | grep -i "^add" || true
+            echo "EOF"
+            echo "FIXES<<EOF"
+            echo "$COMMITS" | grep -i "^fix\|^bug" || true
+            echo "EOF"
+            echo "IMPROVEMENTS<<EOF"
+            echo "$COMMITS" | grep -i "^improve\|^refactor\|^update" || true
+            echo "EOF"
+            echo "OTHER<<EOF"
+            echo "$COMMITS" | grep -v "^Merge\|^add\|^fix\|^bug\|^improve\|^refactor\|^update" || true
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Create GitHub release
+        if: steps.check.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          NOTES="## Release v$VERSION"$'\n\n'
+          
+          if [ -n "${{ env.FEATURES }}" ]; then
+            NOTES+="### Features"$'\n'"${{ env.FEATURES }}"$'\n\n'
+          fi
+          
+          if [ -n "${{ env.FIXES }}" ]; then
+            NOTES+="### Fixes"$'\n'"${{ env.FIXES }}"$'\n\n'
+          fi
+          
+          if [ -n "${{ env.IMPROVEMENTS }}" ]; then
+            NOTES+="### Improvements"$'\n'"${{ env.IMPROVEMENTS }}"$'\n\n'
+          fi
+          
+          if [ -n "${{ env.OTHER }}" ]; then
+            NOTES+="### Changes"$'\n'"${{ env.OTHER }}"$'\n\n'
+          fi
+          
+          gh release create "v$VERSION" \
+            --target "${{ github.sha }}" \
+            --title "v$VERSION" \
+            --notes "$NOTES"
