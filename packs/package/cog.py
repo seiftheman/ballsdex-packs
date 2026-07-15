@@ -312,7 +312,7 @@ class PackCog(commands.GroupCog, name="pack"):
         ]
     )
     async def set_rarity(self, interaction: discord.Interaction, type: app_commands.Choice[str], min: float, max: float):
-        """Set """
+        """Set rarity range of the balls packed from a pack."""
         await interaction.response.defer(ephemeral=True)
 
         if min < 0 or max < 0:
@@ -329,5 +329,5 @@ class PackCog(commands.GroupCog, name="pack"):
         )
 
         await interaction.followup.send(
-            f" Done, I have updated the rarity range of the balls packed from the {type.value} pack to {min:.1f} to {max:.1f}."
+            f" Done, I have updated the rarity range of the balls packed from the {type.value} pack to {min} to {max}."
         )
