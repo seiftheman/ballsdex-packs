@@ -58,4 +58,3 @@ jobs:
 
       - name: Generate changelog from commits
         if: steps.check.outputs.should_release == 'true'](#)
-
