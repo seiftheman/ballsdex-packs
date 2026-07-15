@@ -47,16 +47,6 @@ class PackCog(commands.GroupCog, name="pack"):
     
     def _default_pack_rarity(self, pack_type: str) -> tuple[float | None, float | None]:
         return self.DEFAULT_PACK_RARITY.get(pack_type, (None, None))
-
-    async def _create_pack(self, discord_id: int, type: str, last_claim_date=None) -> Pack:
-        min_rarity, max_rarity = self._default_pack_rarity(type)
-        return await Pack.objects.acreate(
-            discord_id=discord_id,
-            type=type,
-            last_claim_date=last_claim_date,
-            min_rarity=min_rarity,
-            max_rarity=max_rarity,
-        )
     
     async def _can_claim(self, discord_id: int, type: str, cooldown: timedelta) -> tuple[bool, float]:
         latest = await Pack.objects.filter(discord_id=discord_id, type=type, last_claim_date__isnull=False,).order_by("-last_claim_date").afirst()
@@ -93,7 +83,14 @@ class PackCog(commands.GroupCog, name="pack"):
         if not can:
             await interaction.response.send_message(f"You have already claimed a daily pack. Try again in {self._format_seconds(rem)}.", ephemeral=True)
             return
-        await self._create_pack(interaction.user.id, "daily", last_claim_date=timezone.now())
+        min_rarity, max_rarity = self._default_pack_rarity(type)
+        await Pack.objects.acreate(
+            discord_id=interaction.user.id,
+            type="daily",
+            last_claim_date=timezone.now(),
+            min_rarity=min_rarity,
+            max_rarity=max_rarity,
+        )
         await interaction.response.send_message("You just claimed a daily pack!")
 
     @app_commands.command()
@@ -106,7 +103,14 @@ class PackCog(commands.GroupCog, name="pack"):
                 ephemeral=True,
             )
             return
-        await self._create_pack(interaction.user.id, "weekly", last_claim_date=timezone.now())
+        min_rarity, max_rarity = self._default_pack_rarity(type)
+        await Pack.objects.acreate(
+            discord_id=interaction.user.id,
+            type="weekly",
+            last_claim_date=timezone.now(),
+            min_rarity=min_rarity,
+            max_rarity=max_rarity,
+        )
         await interaction.response.send_message("You just claimed a weekly pack!")
     
     @app_commands.command()
@@ -287,7 +291,13 @@ class PackCog(commands.GroupCog, name="pack"):
 
         for _ in range(amount):
             # I don't think last_claim_date should be added since the pack(s) is(are) admin-given, should it?
-            await Pack.objects.acreate(discord_id=user.id, type=type.value)
+            min_rarity, max_rarity = self._default_pack_rarity(type)
+            await Pack.objects.acreate(
+                discord_id=user.id,
+                type=type.value,
+                min_rarity=min_rarity,
+                max_rarity=max_rarity,
+            )
 
         if amount == 1:
             await interaction.followup.send(
