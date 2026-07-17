@@ -27,8 +27,6 @@ class PackCog(commands.GroupCog, name="pack"):
 
     admin = app_commands.Group(name="admin", description="Pack administration commands.")
 
-    DEFAULT_PACK_RARITY: dict[str, tuple[float | None, float | None]] = {}
-
     def admin_permissions_check():
         """Custom permission check for admin commands that works with interactions."""
         async def check(interaction: discord.Interaction["BallsDexBot"]) -> bool:
