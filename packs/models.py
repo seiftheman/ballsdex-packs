@@ -1,7 +1,7 @@
 from django.db import models
 
 class Pack(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    id = models.BigAutoField(primary_key=True, serialize=False)
     type = models.CharField(max_length=100, help_text="Type of the pack.")
     min_rarity = models.FloatField(
         null=True,
