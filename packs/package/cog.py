@@ -13,7 +13,7 @@ from discord import app_commands
 from discord.ext import commands
 from bd_models.models import Ball, BallInstance, Player
 from settings.models import settings
-from packs.models import Pack
+from packs.models import Pack, PackInstance
 
 if TYPE_CHECKING:
     from ballsdex.core.bot import BallsDexBot
@@ -49,7 +49,7 @@ class PackCog(commands.GroupCog, name="pack"):
         return self.DEFAULT_PACK_RARITY.get(pack_type, (None, None))
     
     async def _can_claim(self, discord_id: int, type: str, cooldown: timedelta) -> tuple[bool, float]:
-        latest = await Pack.objects.filter(discord_id=discord_id, type=type, last_claim_date__isnull=False,).order_by("-last_claim_date").afirst()
+        latest = await PackInstance.objects.filter(discord_id=discord_id, type=type, last_claim_date__isnull=False,).order_by("-last_claim_date").afirst()
         if not latest:
             return True, 0.0
         delta = timezone.now() - latest.last_claim_date
@@ -83,13 +83,13 @@ class PackCog(commands.GroupCog, name="pack"):
         if not can:
             await interaction.response.send_message(f"You have already claimed a daily pack. Try again in {self._format_seconds(rem)}.", ephemeral=True)
             return
-        min_rarity, max_rarity = self._default_pack_rarity(type)
-        await Pack.objects.acreate(
+        daily_pack = await Pack.objects.filter(type="daily").afirst()
+        await PackInstance.objects.acreate(
             discord_id=interaction.user.id,
-            type="daily",
+            type=daily_pack.type,
             last_claim_date=timezone.now(),
-            min_rarity=min_rarity,
-            max_rarity=max_rarity,
+            min_rarity=daily_pack.min_rarity,
+            max_rarity=daily_pack.max_rarity,
         )
         await interaction.response.send_message("You just claimed a daily pack!")
 
@@ -103,21 +103,21 @@ class PackCog(commands.GroupCog, name="pack"):
                 ephemeral=True,
             )
             return
-        min_rarity, max_rarity = self._default_pack_rarity(type)
-        await Pack.objects.acreate(
+        weekly_pack = await Pack.objects.filter(type="weekly").afirst()
+        await PackInstance.objects.acreate(
             discord_id=interaction.user.id,
             type="weekly",
             last_claim_date=timezone.now(),
-            min_rarity=min_rarity,
-            max_rarity=max_rarity,
+            min_rarity=weekly_pack.min_rarity,
+            max_rarity=weekly_pack.max_rarity,
         )
         await interaction.response.send_message("You just claimed a weekly pack!")
     
     @app_commands.command()
     async def list(self, interaction: discord.Interaction):
         """View a list of your owned packs."""
-        daily_count = await Pack.objects.filter(discord_id=interaction.user.id, type="daily", is_opened=False).acount()
-        weekly_count = await Pack.objects.filter(discord_id=interaction.user.id, type="weekly", is_opened=False).acount()
+        daily_count = await PackInstance.objects.filter(discord_id=interaction.user.id, type="daily", is_opened=False).acount()
+        weekly_count = await PackInstance.objects.filter(discord_id=interaction.user.id, type="weekly", is_opened=False).acount()
         if daily_count > 0 and weekly_count == 0:
             await interaction.response.send_message(f"Daily Packs: {daily_count}")   
         elif weekly_count > 0 and daily_count == 0:
@@ -141,7 +141,7 @@ class PackCog(commands.GroupCog, name="pack"):
     async def open(self, interaction: discord.Interaction, type: app_commands.Choice[str], amount: int = 1):
         """Open any of your owned packs."""
         await interaction.response.defer()
-        pack_objs = [pack async for pack in Pack.objects.filter(discord_id=interaction.user.id, type=type.value, is_opened=False).order_by("last_claim_date")]
+        pack_objs = [pack async for pack in PackInstance.objects.filter(discord_id=interaction.user.id, type=type.value, is_opened=False).order_by("last_claim_date")]
         if not pack_objs:
             await interaction.followup.send("You do not have any packs yet.")
             return
@@ -188,7 +188,7 @@ class PackCog(commands.GroupCog, name="pack"):
                 f"**{instance.ball.country}** ``({instance.pk:0X}, {attack_bonus:+d}%/{health_bonus:+d}%)``"
             )
         
-        await Pack.objects.filter(pk__in=[pack.pk for pack in packs_to_consume]).aupdate(is_opened=True)
+        await PackInstance.objects.filter(pk__in=[pack.pk for pack in packs_to_consume]).aupdate(is_opened=True)
         
         message = (
             f"**{type.value.capitalize()} Pack**\n"
@@ -239,7 +239,7 @@ class PackCog(commands.GroupCog, name="pack"):
             await interaction.followup.send("You cannot give packs to yourself.")
             return
 
-        pack_qs = Pack.objects.filter(discord_id=interaction.user.id, type=type.value, is_opened=False)
+        pack_qs = PackInstance.objects.filter(discord_id=interaction.user.id, type=type.value, is_opened=False)
         pack_count = await pack_qs.acount()
         if pack_count == 0:
             await interaction.followup.send("You don't have any packs yet.")
@@ -254,7 +254,7 @@ class PackCog(commands.GroupCog, name="pack"):
         all_pks = [pk async for pk in pack_qs.order_by("last_claim_date").values_list('pk', flat=True)]
         packs_to_give = all_pks[:amount]
         
-        await Pack.objects.filter(pk__in=packs_to_give).aupdate(discord_id=user.id)
+        await PackInstance.objects.filter(pk__in=packs_to_give).aupdate(discord_id=user.id)
 
         if amount == 1:
             await interaction.followup.send(
@@ -291,12 +291,12 @@ class PackCog(commands.GroupCog, name="pack"):
 
         for _ in range(amount):
             # I don't think last_claim_date should be added since the pack(s) is(are) admin-given, should it?
-            min_rarity, max_rarity = self._default_pack_rarity(type)
-            await Pack.objects.acreate(
+            pack = Pack.objects.filter(type=type.value).afirst()
+            await PackInstance.objects.acreate(
                 discord_id=user.id,
                 type=type.value,
-                min_rarity=min_rarity,
-                max_rarity=max_rarity,
+                min_rarity=pack.min_rarity,
+                max_rarity=pack.max_rarity,
             )
 
         if amount == 1:
@@ -333,8 +333,7 @@ class PackCog(commands.GroupCog, name="pack"):
             await interaction.followup.send("Sorry, minimum rarity cannot be higher than maximum rarity.")
             return
 
-        self.DEFAULT_PACK_RARITY[type.value] = (min, max)
-        await Pack.objects.filter(type=type.value, is_opened=False).aupdate(
+        await Pack.objects.filter(type=type.value).aupdate(
             min_rarity=min, max_rarity=max
         )
 

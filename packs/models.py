@@ -1,7 +1,18 @@
-
 from django.db import models
 
 class Pack(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    type = models.CharField(max_length=100, help_text="Type of the pack.")
+    min_rarity = models.FloatField(
+        null=True,
+        help_text="Minimum rarity for balls in this pack."
+    )
+    max_rarity = models.FloatField(
+        null=True,
+        help_text="Maximum rarity for balls in this pack."
+    )
+
+class PackInstance(models.Model):
     id = models.BigAutoField(primary_key=True)
     type = models.CharField(max_length=100, help_text="Type of the pack.")
     discord_id = models.BigIntegerField(help_text="Discord user ID.")
