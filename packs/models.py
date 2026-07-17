@@ -1,8 +1,8 @@
 from django.db import models
 
 class Pack(models.Model):
-    id = models.BigAutoField(primary_key=True, unique=True)
-    type = models.CharField(max_length=100, help_text="Type of the pack.")
+    id = models.BigAutoField(primary_key=True)
+    type = models.CharField(max_length=100, help_text="Type of the pack.", unique=True)
     min_rarity = models.FloatField(
         null=True,
         help_text="Minimum rarity for balls in this pack."
