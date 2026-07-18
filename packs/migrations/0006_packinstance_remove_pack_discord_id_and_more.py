@@ -3,7 +3,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("packs", "0005_pack_max_rarity_pack_min_rarity"),
+        ("pack", "0005_pack_max_rarity_pack_min_rarity"),
     ]
 
     operations = [
