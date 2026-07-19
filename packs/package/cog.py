@@ -289,7 +289,7 @@ class PackCog(commands.GroupCog, name="pack"):
 
         for _ in range(amount):
             # I don't think last_claim_date should be added since the pack(s) is(are) admin-given, should it?
-            pack = Pack.objects.filter(type=type.value).afirst()
+            pack = await Pack.objects.filter(type=type.value).afirst()
             await PackInstance.objects.acreate(
                 discord_id=user.id,
                 type=type.value,
