@@ -1,5 +1,6 @@
 from django.db import migrations, models
 
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -42,17 +43,17 @@ class Migration(migrations.Migration):
                         ('is_opened', models.BooleanField(default=False, help_text='Whether this pack has already been opened.')),
                     ],
                 ),
-                migrations.RemoveField(
-                    model_name='pack',
-                    name='discord_id',
+                migrations.DeleteModel(
+                    name='Pack',
                 ),
-                migrations.RemoveField(
-                    model_name='pack',
-                    name='is_opened',
-                ),
-                migrations.RemoveField(
-                    model_name='pack',
-                    name='last_claim_date',
+                migrations.CreateModel(
+                    name='Pack',
+                    fields=[
+                        ('id', models.BigAutoField(primary_key=True, serialize=False)),
+                        ('type', models.CharField(help_text='Type of the pack.', max_length=100)),
+                        ('min_rarity', models.FloatField(help_text='Minimum rarity for balls in this pack.', null=True)),
+                        ('max_rarity', models.FloatField(help_text='Maximum rarity for balls in this pack.', null=True)),
+                    ],
                 ),
             ]
         )
