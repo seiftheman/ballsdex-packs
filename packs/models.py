@@ -6,10 +6,12 @@ class Pack(models.Model):
     type = models.CharField(max_length=100, help_text="Type of the pack.", unique=True)
     min_rarity = models.FloatField(
         null=True,
+        blank=True,
         help_text="Minimum rarity for balls in this pack."
     )
     max_rarity = models.FloatField(
         null=True,
+        blank=True,
         help_text="Maximum rarity for balls in this pack."
     )
     def __str__(self):
