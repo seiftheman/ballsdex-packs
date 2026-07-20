@@ -12,6 +12,8 @@ class Pack(models.Model):
         null=True,
         help_text="Maximum rarity for balls in this pack."
     )
+    def __str__(self):
+        return self.name
 
 class PackInstance(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -34,3 +36,5 @@ class PackInstance(models.Model):
         default=False, 
         help_text="Whether this pack has already been opened."
     )
+    def __str__(self):
+        return f"{self.type} ({self.discord_id})"
