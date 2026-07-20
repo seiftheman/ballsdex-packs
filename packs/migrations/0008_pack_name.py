@@ -10,7 +10,6 @@ class Migration(migrations.Migration):
     operations = [
         migrations.SeparateDatabaseAndState(
             database_operations=[
-                # 1. Add column without UNIQUE constraint first
                 migrations.RunSQL(
                     sql="""
                     ALTER TABLE packs_pack 
@@ -18,7 +17,6 @@ class Migration(migrations.Migration):
                     """,
                     reverse_sql="ALTER TABLE packs_pack DROP COLUMN IF EXISTS name;",
                 ),
-                # 2. Backfill existing rows using their 'type' column (e.g. 'daily' -> 'Daily Pack')
                 migrations.RunSQL(
                     sql="""
                     UPDATE packs_pack 
@@ -27,7 +25,6 @@ class Migration(migrations.Migration):
                     """,
                     reverse_sql=migrations.RunSQL.noop,
                 ),
-                # 3. Add the UNIQUE constraint now that values are distinct
                 migrations.RunSQL(
                     sql="""
                     ALTER TABLE packs_pack 
