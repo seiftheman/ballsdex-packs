@@ -42,18 +42,6 @@ class Migration(migrations.Migration):
                         ('is_opened', models.BooleanField(default=False, help_text='Whether this pack has already been opened.')),
                     ],
                 ),
-                migrations.RemoveField(
-                    model_name='pack',
-                    name='discord_id',
-                ),
-                migrations.RemoveField(
-                    model_name='pack',
-                    name='is_opened',
-                ),
-                migrations.RemoveField(
-                    model_name='pack',
-                    name='last_claim_date',
-                ),
             ]
         )
     ]
