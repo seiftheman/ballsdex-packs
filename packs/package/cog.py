@@ -283,7 +283,7 @@ class PackCog(commands.GroupCog, name="pack"):
             app_commands.Choice(name="Weekly", value="weekly"),
         ]
     )
-    async def admin_give(self, interaction: discord.Interaction, type: app_commands.Choice[str], user: discord.User, amount: int = 1):
+    async def give(self, interaction: discord.Interaction, type: app_commands.Choice[str], user: discord.User, amount: int = 1):
         """Give packs to a user."""
         await interaction.response.defer(ephemeral=True)
         if user.bot:
