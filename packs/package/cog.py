@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 import discord
 from discord import app_commands
 from discord.ext import commands
+from ballsdex.core.utils.utils import is_staff
 from bd_models.models import Ball, BallInstance, Player
 from settings.models import settings
 from packs.models import Pack, PackInstance
@@ -249,6 +250,12 @@ class PackCog(commands.GroupCog, name="pack"):
             )
             return
 
+        staff = await is_staff(interaction)
+        if user is not None:
+            if user.id in self.bot.blacklist and not staff:
+                await interaction.followup.send("You cannot view the inventory of a blacklisted user.", ephemeral=True)
+                return
+        
         all_pks = [pk async for pk in pack_qs.order_by("last_claim_date").values_list('pk', flat=True)]
         packs_to_give = all_pks[:amount]
         
@@ -276,7 +283,7 @@ class PackCog(commands.GroupCog, name="pack"):
             app_commands.Choice(name="Weekly", value="weekly"),
         ]
     )
-    async def give(self, interaction: discord.Interaction, type: app_commands.Choice[str], user: discord.User, amount: int = 1):
+    async def admin_give(self, interaction: discord.Interaction, type: app_commands.Choice[str], user: discord.User, amount: int = 1):
         """Give packs to a user."""
         await interaction.response.defer(ephemeral=True)
         if user.bot:
@@ -336,5 +343,5 @@ class PackCog(commands.GroupCog, name="pack"):
         )
 
         await interaction.followup.send(
-            f" Done, I have updated the rarity range of the balls packed from the {type.value} pack to {min} to {max}."
+            f"Done, I have updated the rarity range of the balls packed from the {type.value} pack to {min} to {max}."
         )
