@@ -7,8 +7,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from ballsdex.core.utils import checks
-from bd_models.models import Pack
-from packs.models import PackInstance
+from packs.models import Pack, PackInstance
 
 if TYPE_CHECKING:
     from ballsdex.core.bot import BallsDexBot
