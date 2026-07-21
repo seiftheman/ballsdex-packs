@@ -51,9 +51,6 @@ class PackCog(commands.GroupCog, name="pack"):
 
         return app_commands.check(check)
 
-    def _default_pack_rarity(self, pack_type: str) -> tuple[float | None, float | None]:
-        return self.DEFAULT_PACK_RARITY.get(pack_type, (None, None))
-
     async def _can_claim(
         self, discord_id: int, type: str, cooldown: timedelta
     ) -> tuple[bool, float]:
@@ -102,10 +99,16 @@ class PackCog(commands.GroupCog, name="pack"):
 
     @pack_admin.command(name="give")
     @checks.has_permissions("bd_models.add_ballinstance")
+    @app_commands.choices(
+        type=[
+            app_commands.Choice(name="Daily", value="daily"),
+            app_commands.Choice(name="Weekly", value="weekly"),
+        ]
+    )
     @app_commands.describe(
-        type="Type of the pack you want to open.",
+        type="Type of the pack you want to give.",
         user="User you want to give packs to.",
-        amount="Amount of packs you want to open.",
+        amount="Amount of packs you want to give.",
     )
     async def pack_give(
         self,
@@ -114,7 +117,7 @@ class PackCog(commands.GroupCog, name="pack"):
         user: discord.User,
         amount: int = 1,
     ):
-        """Give packs to another user."""
+        """Give packs to a user."""
         if user.bot:
             await ctx.send("Sorry, you cannot give packs to bots.", ephemeral=True)
             return
@@ -149,39 +152,45 @@ class PackCog(commands.GroupCog, name="pack"):
 
     @pack_admin.command(name="setrarity")
     @checks.has_permissions("bd_models.add_ballinstance")
+    @app_commands.choices(
+        type=[
+            app_commands.Choice(name="Daily", value="daily"),
+            app_commands.Choice(name="Weekly", value="weekly"),
+        ]
+    )
     @app_commands.describe(
-        pack_type="Type of the pack to set rarity for.",
-        min_rarity="Minimum rarity threshold.",
-        max_rarity="Maximum rarity threshold.",
+        type="Type of the pack to set rarity to.",
+        min="Minimum rarity for balls from this pack.",
+        max="Maximum rarity for balls from this pack."
     )
     async def pack_set_rarity(
         self,
         ctx: commands.Context[BallsDexBot],
-        pack_type: str,
-        min_rarity: float,
-        max_rarity: float,
+        type: str,
+        min: float,
+        max: float,
     ):
         """Set the rarity range of balls dropped from a specific pack type."""
-        if min_rarity < 0 or max_rarity < 0:
+        if min < 0 or max < 0:
             await ctx.send("Sorry, rarity values must be 0 or greater.", ephemeral=True)
             return
 
-        if min_rarity > max_rarity:
+        if min > max:
             await ctx.send(
                 "Sorry, minimum rarity cannot be higher than maximum rarity.", ephemeral=True
             )
             return
 
-        updated = await Pack.objects.filter(type=pack_type.lower()).aupdate(
-            min_rarity=min_rarity, max_rarity=max_rarity
+        updated = await Pack.objects.filter(type=type.lower()).aupdate(
+            min_rarity=min, max_rarity=max
         )
 
         if not updated:
-            await ctx.send(f"Pack type `{pack_type}` does not exist.", ephemeral=True)
+            await ctx.send(f"Pack type `{type}` does not exist.", ephemeral=True)
             return
 
         await ctx.send(
-            f"Done, I have updated the rarity range of the balls packed from the {pack_type} pack to {min_rarity} - {max_rarity}.",
+            f"Done, I have updated the rarity range of the balls packed from the {type} pack to {min} - {max}.",
             ephemeral=True,
         )
 
@@ -350,9 +359,9 @@ class PackCog(commands.GroupCog, name="pack"):
         ]
     )
     @app_commands.describe(
-        type="Type of the pack you want to open.",
+        type="Type of the pack you want to give.",
         user="User you want to give packs to.",
-        amount="Amount of packs you want to open.",
+        amount="Amount of packs you want to give.",
     )
     async def give(
         self,
