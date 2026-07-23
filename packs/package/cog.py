@@ -5,7 +5,7 @@ import inspect
 import logging
 import random
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, List
 
 import discord
 from discord import app_commands
@@ -29,20 +29,64 @@ class PackCog(commands.GroupCog, name="pack"):
 
     def __init__(self, bot: BallsDexBot):
         self.bot = bot
+        self._registered_claim_commands: list[str] = []
+
+    async def cog_load(self) -> None:
+        async for pack in Pack.objects.filter(enabled=True):
+            cmd = self._make_pack_command(pack)
+            self.app_command.add_command(cmd)
+            self._registered_claim_commands.append(cmd.name)
+
+    def cog_unload(self) -> None:
+        for name in self._registered_claim_commands:
+            self.app_command.remove_command(name)
+        self._registered_claim_commands = []
+
+    def _make_pack_command(self, pack: Pack) -> app_commands.Command:
+        """Return a dynamic claim slash command bound to a specific Pack."""
+        cog = self
+
+        async def callback(interaction: discord.Interaction) -> None:
+            can, rem = await cog._can_claim(interaction.user.id, pack)
+            if not can:
+                await interaction.response.send_message(
+                    f"You have already claimed a {pack.type} pack. Try again in {cog._format_seconds(rem)}.",
+                    ephemeral=True,
+                )
+                return
+
+            await PackInstance.objects.acreate(
+                discord_id=interaction.user.id,
+                type=pack.type,
+                last_claim_date=timezone.now(),
+                min_rarity=pack.min_rarity,
+                max_rarity=pack.max_rarity,
+            )
+            await interaction.response.send_message(f"You just claimed a {pack.type} pack!")
+
+        cmd_name = pack.type.lower().replace(" ", "_")
+        callback.__name__ = cmd_name
+
+        return app_commands.Command(
+            name=cmd_name,
+            description=f"Obtain a {pack.type} pack that contains a random countryball.",
+            callback=callback,
+        )
 
     async def _can_claim(
-        self, discord_id: int, type: str, cooldown: timedelta
+        self, discord_id: int, pack: Pack
     ) -> tuple[bool, float]:
+        cooldown = timedelta(seconds=getattr(pack, "cooldown_seconds", 86400))
         latest = (
             await PackInstance.objects.filter(
                 discord_id=discord_id,
-                type=type,
+                type=pack.type,
                 last_claim_date__isnull=False,
             )
             .order_by("-last_claim_date")
             .afirst()
         )
-        if not latest:
+        if not latest or latest.last_claim_date is None:
             return True, 0.0
         delta = timezone.now() - latest.last_claim_date
         if delta >= cooldown:
@@ -68,45 +112,18 @@ class PackCog(commands.GroupCog, name="pack"):
             return parts[0]
         return " and ".join(", ".join(parts).rsplit(", ", 1))
 
-    @app_commands.command()
-    async def daily(self, interaction: discord.Interaction):
-        """Obtain a daily pack that contains a random countryball."""
-        can, rem = await self._can_claim(interaction.user.id, "daily", timedelta(days=1))
-        if not can:
-            await interaction.response.send_message(
-                f"You have already claimed a daily pack. Try again in {self._format_seconds(rem)}.",
-                ephemeral=True,
-            )
-            return
-        daily_pack = await Pack.objects.filter(type="daily").afirst()
-        await PackInstance.objects.acreate(
-            discord_id=interaction.user.id,
-            type=daily_pack.type,
-            last_claim_date=timezone.now(),
-            min_rarity=daily_pack.min_rarity,
-            max_rarity=daily_pack.max_rarity,
-        )
-        await interaction.response.send_message("You just claimed a daily pack!")
-
-    @app_commands.command()
-    async def weekly(self, interaction: discord.Interaction):
-        """Obtain a weekly pack that contains a random countryball."""
-        can, rem = await self._can_claim(interaction.user.id, "weekly", timedelta(days=7))
-        if not can:
-            await interaction.response.send_message(
-                f"You have already claimed a weekly pack. Try again in {self._format_seconds(rem)}.",
-                ephemeral=True,
-            )
-            return
-        weekly_pack = await Pack.objects.filter(type="weekly").afirst()
-        await PackInstance.objects.acreate(
-            discord_id=interaction.user.id,
-            type="weekly",
-            last_claim_date=timezone.now(),
-            min_rarity=weekly_pack.min_rarity,
-            max_rarity=weekly_pack.max_rarity,
-        )
-        await interaction.response.send_message("You just claimed a weekly pack!")
+    async def type_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> List[app_commands.Choice[str]]:
+        packs = [
+            p
+            async for p in Pack.objects.filter(enabled=True)
+            if current.lower() in p.type.lower() or current.lower() in p.name.lower()
+        ]
+        return [
+            app_commands.Choice(name=p.name, value=p.type)
+            for p in packs[:25]
+        ]
 
     @app_commands.command()
     async def list(self, interaction: discord.Interaction):
@@ -129,24 +146,19 @@ class PackCog(commands.GroupCog, name="pack"):
             await interaction.response.send_message("You don't have any packs yet.", ephemeral=True)
 
     @app_commands.command()
-    @app_commands.choices(
-        type=[
-            app_commands.Choice(name="Daily", value="daily"),
-            app_commands.Choice(name="Weekly", value="weekly"),
-        ]
-    )
+    @app_commands.autocomplete(type=type_autocomplete)
     @app_commands.describe(
         type="Type of the pack you want to open.", amount="Amount of packs you want to open."
     )
     async def open(
-        self, interaction: discord.Interaction, type: app_commands.Choice[str], amount: int = 1
+        self, interaction: discord.Interaction, type: str, amount: int = 1
     ):
         """Open any of your owned packs."""
         await interaction.response.defer()
         pack_objs = [
             pack
             async for pack in PackInstance.objects.filter(
-                discord_id=interaction.user.id, type=type.value, is_opened=False
+                discord_id=interaction.user.id, type=type, is_opened=False
             ).order_by("last_claim_date")
         ]
         if not pack_objs:
@@ -155,7 +167,7 @@ class PackCog(commands.GroupCog, name="pack"):
 
         if amount > len(pack_objs):
             await interaction.followup.send(
-                f"You only have {len(pack_objs)} {type.value} pack(s) to open."
+                f"You only have {len(pack_objs)} {type} pack(s) to open."
             )
             return
 
@@ -200,7 +212,7 @@ class PackCog(commands.GroupCog, name="pack"):
         )
 
         message = (
-            f"**{type.value.capitalize()} Pack**\n"
+            f"**{type.capitalize()} Pack**\n"
             f"{interaction.user.mention} You packed {', '.join(results)}!"
         )
         if any_new:
@@ -226,12 +238,7 @@ class PackCog(commands.GroupCog, name="pack"):
         await interaction.followup.send(message)
 
     @app_commands.command()
-    @app_commands.choices(
-        type=[
-            app_commands.Choice(name="Daily", value="daily"),
-            app_commands.Choice(name="Weekly", value="weekly"),
-        ]
-    )
+    @app_commands.autocomplete(type=type_autocomplete)
     @app_commands.describe(
         type="Type of the pack you want to give.",
         user="User you want to give packs to.",
@@ -240,7 +247,7 @@ class PackCog(commands.GroupCog, name="pack"):
     async def give(
         self,
         interaction: discord.Interaction,
-        type: app_commands.Choice[str],
+        type: str,
         user: discord.User,
         amount: int = 1,
     ):
@@ -255,7 +262,7 @@ class PackCog(commands.GroupCog, name="pack"):
             return
 
         pack_qs = PackInstance.objects.filter(
-            discord_id=interaction.user.id, type=type.value, is_opened=False
+            discord_id=interaction.user.id, type=type, is_opened=False
         )
         pack_count = await pack_qs.acount()
         if pack_count == 0:
@@ -264,7 +271,7 @@ class PackCog(commands.GroupCog, name="pack"):
 
         if amount > pack_count:
             await interaction.followup.send(
-                f"You only have {pack_count} {type.value} pack(s) to give."
+                f"You only have {pack_count} {type} pack(s) to give."
             )
             return
 
@@ -285,15 +292,9 @@ class PackCog(commands.GroupCog, name="pack"):
 
         if amount == 1:
             await interaction.followup.send(
-                f"You have given {amount} {type.value} pack to {user.mention}!"
+                f"You have given {amount} {type} pack to {user.mention}!"
             )
         else:
             await interaction.followup.send(
-                f"You have given {amount} {type.value} packs to {user.mention}!"
+                f"You have given {amount} {type} packs to {user.mention}!"
             )
-
-
-async def setup(bot: BallsDexBot) -> None:
-    await Pack.objects.aupdate_or_create(type="daily", defaults={"name": "Daily"})
-    await Pack.objects.aupdate_or_create(type="weekly", defaults={"name": "Weekly"})
-    await bot.add_cog(PackCog(bot))

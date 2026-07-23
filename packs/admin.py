@@ -9,4 +9,5 @@ class PackAdmin(admin.ModelAdmin):
 
 @admin.register(PackInstance)
 class PackInstanceAdmin(admin.ModelAdmin):
+    autocomplete_fields = ("pack")
     list_display = ("type", "discord_id", "is_opened", "last_claim_date")
