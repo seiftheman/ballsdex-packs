@@ -43,7 +43,6 @@ class PackCog(commands.GroupCog, name="pack"):
         self._registered_claim_commands = []
 
     def _make_pack_command(self, pack: Pack) -> app_commands.Command:
-        """Return a dynamic claim slash command bound to a specific Pack."""
         cog = self
 
         async def callback(interaction: discord.Interaction) -> None:
