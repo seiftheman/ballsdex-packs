@@ -38,4 +38,4 @@ class PackInstance(models.Model):
     )
 
     def __str__(self):
-        return f"{self.pack.name} - {self.discord_id}"
+        return f"{self.pack.type} - {self.discord_id}"
