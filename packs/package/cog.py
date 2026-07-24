@@ -109,17 +109,14 @@ class PackCog(commands.GroupCog, name="pack"):
             return parts[0]
         return " and ".join(", ".join(parts).rsplit(", ", 1))
 
+    @staticmethod
     async def type_autocomplete(
-        self, interaction: discord.Interaction, current: str
-    ) -> List[app_commands.Choice[str]]:
-        packs = [
-            p
-            async for p in Pack.objects.filter(enabled=True)
-            if current.lower() in p.type.lower() or current.lower() in p.name.lower()
-        ]
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
         return [
-            app_commands.Choice(name=p.name, value=p.type)
-            for p in packs[:25]
+            app_commands.Choice(name=pack.name, value=pack.type)
+            for pack in await Pack.objects.all()
+            if current.lower() in pack.name.lower()
         ]
 
     @app_commands.command()

@@ -8,6 +8,7 @@ from discord.ext import commands
 
 from ballsdex.core.utils import checks
 from packs.models import Pack, PackInstance
+from .cog import PackCog
 
 if TYPE_CHECKING:
     from ballsdex.core.bot import BallsDexBot
@@ -31,12 +32,7 @@ class PackAdmin(commands.Cog):
 
     @pack.command(name="give")
     @checks.has_permissions("bd_models.add_ballinstance")
-    @app_commands.choices(
-        type=[
-            app_commands.Choice(name="Daily", value="daily"),
-            app_commands.Choice(name="Weekly", value="weekly"),
-        ]
-    )
+    @app_commands.autocomplete(type=PackCog.type_autocomplete)
     @app_commands.describe(
         type="Type of the pack you want to give.",
         user="User you want to give packs to.",
@@ -79,12 +75,7 @@ class PackAdmin(commands.Cog):
 
     @pack.command(name="setrarity")
     @checks.has_permissions("bd_models.add_ballinstance")
-    @app_commands.choices(
-        type=[
-            app_commands.Choice(name="Daily", value="daily"),
-            app_commands.Choice(name="Weekly", value="weekly"),
-        ]
-    )
+    @app_commands.autocomplete(type=PackCog.type_autocomplete)
     @app_commands.describe(
         type="Type of the pack to set rarity to.",
         min="Minimum rarity for balls from this pack.",
@@ -122,7 +113,3 @@ class PackAdmin(commands.Cog):
             f"Done, I have updated the rarity range of the balls packed from the {type} pack to {min} - {max}.",
             ephemeral=True,
         )
-
-
-async def setup(bot: BallsDexBot):
-    await bot.add_cog(PackAdmin(bot))
