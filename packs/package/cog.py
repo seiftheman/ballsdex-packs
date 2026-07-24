@@ -58,8 +58,6 @@ class PackCog(commands.GroupCog, name="pack"):
                 discord_id=interaction.user.id,
                 pack=pack,
                 last_claim_date=timezone.now(),
-                min_rarity=pack.min_rarity,
-                max_rarity=pack.max_rarity,
             )
             await interaction.response.send_message(f"You just claimed a {pack.type} pack!")
 
@@ -158,7 +156,9 @@ class PackCog(commands.GroupCog, name="pack"):
             pack
             async for pack in PackInstance.objects.filter(
                 discord_id=interaction.user.id, pack__type=type, is_opened=False
-            ).order_by("last_claim_date")
+            )
+            .select_related("pack")
+            .order_by("last_claim_date")
         ]
         if not pack_objs:
             await interaction.followup.send("You do not have any packs yet.")
@@ -176,12 +176,12 @@ class PackCog(commands.GroupCog, name="pack"):
         results = []
         any_new = False
         new_balls = []
-        for pack in packs_to_consume:
+        for pack_instance in packs_to_consume:
             balls_query = Ball.objects.filter(enabled=True)
-            if pack.min_rarity is not None:
-                balls_query = balls_query.filter(rarity__gte=pack.min_rarity)
-            if pack.max_rarity is not None:
-                balls_query = balls_query.filter(rarity__lte=pack.max_rarity)
+            if pack_instance.pack.min_rarity is not None:
+                balls_query = balls_query.filter(rarity__gte=pack_instance.pack.min_rarity)
+            if pack_instance.pack.max_rarity is not None:
+                balls_query = balls_query.filter(rarity__lte=pack_instance.pack.max_rarity)
 
             balls = [ball async for ball in balls_query]
 
