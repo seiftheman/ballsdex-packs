@@ -8,7 +8,7 @@ from discord.ext import commands
 
 from ballsdex.core.utils import checks
 from packs.models import Pack, PackInstance
-from .cog import PackCog
+from .cog import type_autocomplete
 
 if TYPE_CHECKING:
     from ballsdex.core.bot import BallsDexBot
@@ -32,7 +32,7 @@ class PackAdmin(commands.Cog):
 
     @pack.command(name="give")
     @checks.has_permissions("bd_models.add_ballinstance")
-    @app_commands.autocomplete(type=PackCog.type_autocomplete)
+    @app_commands.autocomplete(type=type_autocomplete)
     @app_commands.describe(
         type="Type of the pack you want to give.",
         user="User you want to give packs to.",
@@ -62,9 +62,7 @@ class PackAdmin(commands.Cog):
         for _ in range(amount):
             await PackInstance.objects.acreate(
                 discord_id=user.id,
-                type=pack.type,
-                min_rarity=pack.min_rarity,
-                max_rarity=pack.max_rarity,
+                pack=pack,
             )
 
         await ctx.send(
@@ -75,7 +73,7 @@ class PackAdmin(commands.Cog):
 
     @pack.command(name="setrarity")
     @checks.has_permissions("bd_models.add_ballinstance")
-    @app_commands.autocomplete(type=PackCog.type_autocomplete)
+    @app_commands.autocomplete(type=type_autocomplete)
     @app_commands.describe(
         type="Type of the pack to set rarity to.",
         min="Minimum rarity for balls from this pack.",

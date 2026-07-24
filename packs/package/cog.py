@@ -23,6 +23,14 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("ballsdex.packages.packs")
 
+async def type_autocomplete(
+    interaction: discord.Interaction, current: str
+) -> list[app_commands.Choice[str]]:
+    choices = []
+    async for pack in Pack.objects.all():
+        if current.lower() in pack.name.lower():
+            choices.append(app_commands.Choice(name=pack.name, value=pack.type))
+    return choices[:25]
 
 class PackCog(commands.GroupCog, name="pack"):
     """Pack commands."""
@@ -108,16 +116,6 @@ class PackCog(commands.GroupCog, name="pack"):
         if len(parts) == 1:
             return parts[0]
         return " and ".join(", ".join(parts).rsplit(", ", 1))
-
-    @staticmethod
-    async def type_autocomplete(
-        interaction: discord.Interaction, current: str
-    ) -> list[app_commands.Choice[str]]:
-        choices = []
-        async for pack in Pack.objects.all():
-            if current.lower() in pack.name.lower():
-                choices.append(app_commands.Choice(name=pack.name, value=pack.type))
-        return choices[:25]
 
     @app_commands.command()
     async def list(self, interaction: discord.Interaction):
