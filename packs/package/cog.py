@@ -56,7 +56,7 @@ class PackCog(commands.GroupCog, name="pack"):
 
             await PackInstance.objects.acreate(
                 discord_id=interaction.user.id,
-                type=pack.type,
+                pack=pack,
                 last_claim_date=timezone.now(),
                 min_rarity=pack.min_rarity,
                 max_rarity=pack.max_rarity,
@@ -79,7 +79,7 @@ class PackCog(commands.GroupCog, name="pack"):
         latest = (
             await PackInstance.objects.filter(
                 discord_id=discord_id,
-                type=pack.type,
+                pack=pack,
                 last_claim_date__isnull=False,
             )
             .order_by("-last_claim_date")
@@ -128,10 +128,10 @@ class PackCog(commands.GroupCog, name="pack"):
     async def list(self, interaction: discord.Interaction):
         """View a list of your owned packs."""
         daily_count = await PackInstance.objects.filter(
-            discord_id=interaction.user.id, type="daily", is_opened=False
+            discord_id=interaction.user.id, pack__type="daily", is_opened=False
         ).acount()
         weekly_count = await PackInstance.objects.filter(
-            discord_id=interaction.user.id, type="weekly", is_opened=False
+            discord_id=interaction.user.id, pack__type="weekly", is_opened=False
         ).acount()
         if daily_count > 0 and weekly_count == 0:
             await interaction.response.send_message(f"Daily Packs: {daily_count}")
@@ -157,7 +157,7 @@ class PackCog(commands.GroupCog, name="pack"):
         pack_objs = [
             pack
             async for pack in PackInstance.objects.filter(
-                discord_id=interaction.user.id, type=type, is_opened=False
+                discord_id=interaction.user.id, pack__type=type, is_opened=False
             ).order_by("last_claim_date")
         ]
         if not pack_objs:
@@ -261,7 +261,7 @@ class PackCog(commands.GroupCog, name="pack"):
             return
 
         pack_qs = PackInstance.objects.filter(
-            discord_id=interaction.user.id, type=type, is_opened=False
+            discord_id=interaction.user.id, pack__type=type, is_opened=False
         )
         pack_count = await pack_qs.acount()
         if pack_count == 0:
