@@ -27,6 +27,11 @@ class PackInstance(models.Model):
     id = models.BigAutoField(primary_key=True)
     pack = models.ForeignKey(Pack, on_delete=models.CASCADE, related_name="instances")
     discord_id = models.BigIntegerField(help_text="Discord user ID.")
+    claimed_by_discord_id = models.BigIntegerField(
+        null=True,
+        blank=True,
+        help_text="Discord user ID of the user who claimed this pack.",
+    )
     last_claim_date = models.DateTimeField(
         null=True,
         blank=True,

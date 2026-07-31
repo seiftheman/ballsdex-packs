@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, List
 import discord
 from discord import app_commands
 from discord.ext import commands
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from ballsdex.core.utils import checks
@@ -64,6 +65,7 @@ class PackCog(commands.GroupCog, name="pack"):
 
             await PackInstance.objects.acreate(
                 discord_id=interaction.user.id,
+                claimed_by_discord_id=interaction.user.id,
                 pack=pack,
                 last_claim_date=timezone.now(),
             )
@@ -84,7 +86,7 @@ class PackCog(commands.GroupCog, name="pack"):
         cooldown = timedelta(seconds=getattr(pack, "cooldown_seconds", 86400))
         latest = (
             await PackInstance.objects.filter(
-                discord_id=discord_id,
+                claimed_by_discord_id=discord_id,
                 pack=pack,
                 last_claim_date__isnull=False,
             )
@@ -119,23 +121,26 @@ class PackCog(commands.GroupCog, name="pack"):
 
     @app_commands.command()
     async def list(self, interaction: discord.Interaction):
-        """View a list of your owned packs."""
-        daily_count = await PackInstance.objects.filter(
-            discord_id=interaction.user.id, pack__type="daily", is_opened=False
-        ).acount()
-        weekly_count = await PackInstance.objects.filter(
-            discord_id=interaction.user.id, pack__type="weekly", is_opened=False
-        ).acount()
-        if daily_count > 0 and weekly_count == 0:
-            await interaction.response.send_message(f"Daily Packs: {daily_count}")
-        elif weekly_count > 0 and daily_count == 0:
-            await interaction.response.send_message(f"Weekly Packs: {weekly_count}")
-        elif daily_count > 0 and weekly_count > 0:
-            await interaction.response.send_message(
-                f"Daily Packs: {daily_count}\nWeekly Packs: {weekly_count}"
+        """View your unopened packs for every enabled pack type."""
+        packs = [
+            pack
+            async for pack in Pack.objects.filter(enabled=True)
+            .annotate(
+                unopened_count=Count(
+                    "instances",
+                    filter=Q(
+                        instances__discord_id=interaction.user.id,
+                        instances__is_opened=False,
+                    ),
+                )
             )
-        else:
-            await interaction.response.send_message("You don't have any packs yet.", ephemeral=True)
+            .order_by("type")
+        ]
+
+        message = "\n".join(
+            f"{pack.name} Packs: {pack.unopened_count}" for pack in packs
+        )
+        await interaction.response.send_message(message)
 
     @app_commands.command()
     @app_commands.autocomplete(type=type_autocomplete)
