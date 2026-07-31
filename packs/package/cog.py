@@ -121,7 +121,7 @@ class PackCog(commands.GroupCog, name="pack"):
 
     @app_commands.command()
     async def list(self, interaction: discord.Interaction):
-        """View your unopened packs for every enabled pack type."""
+        """View a list of your owned packs."""
         packs = [
             pack
             async for pack in Pack.objects.filter(enabled=True)
