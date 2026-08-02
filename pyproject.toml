@@ -1,6 +1,6 @@
 [project]
 name = "ballsdex-packs"
-version = "1.9.8"
+version = "1.9.9"
 
 description = "Packs package for Ballsdex 3.0"
 license = "MIT"
@@ -9,6 +9,6 @@ authors = [
 ]
 
 [project.urls]
-Repository = "https://github.com/seiftheman/ballsdex-packs"
-Documentation = "https://github.com/seiftheman/ballsdex-packs#readme"
-Issues = "https://github.com/seiftheman/ballsdex-packs/issues"
+Repository = "https://github.com/FontsDex-Team/ballsdex-packs"
+Documentation = "https://github.com/FontsDex-Team/ballsdex-packs#readme"
+Issues = "https://github.com/FontsDex-Team/ballsdex-packs/issues"
