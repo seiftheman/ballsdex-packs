@@ -8,7 +8,7 @@ Add the following into your `config/extra.toml` file.
 
 ```toml
 [[ballsdex.packages]]
-location = "git+https://github.com/FontsDex-Team/ballsdex-packs.git#main"
+location = "git+https://github.com/seiftheman/ballsdex-packs.git#main"
 path = "packs"
 enabled = true
 ```
