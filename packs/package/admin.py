@@ -111,3 +111,20 @@ class PackAdmin(commands.Cog):
             f"Done, I have updated the rarity range of the balls packed from the {type} pack to {min} - {max}.",
             ephemeral=True,
         )
+
+    @commands.command(name="reloadpacks")
+    @checks.has_permissions("bd_models.add_ballinstance")
+    async def reloadpacks(self, ctx: commands.Context[BallsDexBot]):
+        """Reload and sync pack slash commands."""
+        pack_cog = self.bot.get_cog("pack")
+        if not pack_cog:
+            await ctx.send("Pack cog is not loaded.")
+            return
+
+        async with ctx.typing():
+            pack_cog.cog_unload()
+            await pack_cog.cog_load()
+            await self.bot.tree.sync()
+
+        await ctx.send("Pack commands have been synced.")
+

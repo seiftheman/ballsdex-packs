@@ -28,7 +28,7 @@ async def type_autocomplete(
     interaction: discord.Interaction, current: str
 ) -> list[app_commands.Choice[str]]:
     choices = []
-    async for pack in Pack.objects.all():
+    async for pack in Pack.objects.filter(enabled=True):
         if current.lower() in pack.name.lower():
             choices.append(app_commands.Choice(name=pack.name, value=pack.type))
     return choices[:25]
