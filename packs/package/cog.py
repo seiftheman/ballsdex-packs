@@ -185,8 +185,18 @@ class PackCog(commands.GroupCog, name="pack"):
 
             balls = [ball async for ball in balls_query]
 
+            if not balls:
+                await interaction.followup.send(
+                    f"Sorry, there are no collectibles available for the {type.lower()} pack."
+                )
+                return
+
             weights = [ball.rarity for ball in balls]
-            ball = random.choices(balls, weights=weights, k=1)[0]
+            if sum(weights) <= 0:
+                ball = random.choice(balls)
+            else:
+                ball = random.choices(balls, weights=weights, k=1)[0]
+            
             is_new = not await BallInstance.objects.filter(player=player, ball=ball).aexists()
             if is_new:
                 any_new = True
@@ -278,7 +288,7 @@ class PackCog(commands.GroupCog, name="pack"):
         if user is not None:
             if user.id in self.bot.blacklist and not staff:
                 await interaction.followup.send(
-                    "You cannot view the inventory of a blacklisted user.", ephemeral=True
+                    "You cannot give packs to a blacklisted user.", ephemeral=True
                 )
                 return
 
