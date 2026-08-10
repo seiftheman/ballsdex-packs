@@ -4,7 +4,7 @@ from .models import Pack, PackInstance
 
 @admin.register(Pack)
 class PackAdmin(admin.ModelAdmin):
-    list_display = ("name", "type", "min_rarity", "max_rarity")
+    list_display = ("name", "type", "min_rarity", "max_rarity", "price", "enabled")
     search_fields = ("name", "type")
 
 

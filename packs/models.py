@@ -18,6 +18,11 @@ class Pack(models.Model):
         default=86400,
         help_text="Cooldown between claims in seconds (e.g. 86400 for 1 day, 604800 for 1 week)."
     )
+    price = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Cost of the pack. If null, the pack cannot be purchased."
+    )
     enabled = models.BooleanField(default=True, help_text="Whether this pack is active.")
 
     def __str__(self):
