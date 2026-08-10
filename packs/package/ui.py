@@ -94,7 +94,7 @@ class BuyButton(discord.ui.Button):
     def __init__(self, currency_symbol: str):
         super().__init__(
             style=discord.ButtonStyle.success,
-            label="Buy Packs",
+            label="Buy Pack",
             custom_id="buy"
         )
 
@@ -177,7 +177,7 @@ class PackShopView(discord.ui.LayoutView):
         currency_symbol = getattr(settings, "currency_symbol", "")
 
         header = f"## {pack.name}"
-        cost_text = f"### {currency_symbol}{pack.price} {currency_name}"
+        cost_text = f"### {pack.price} {currency_name}"
         
         cooldown_str = self._format_seconds(pack.cooldown_seconds)
 
