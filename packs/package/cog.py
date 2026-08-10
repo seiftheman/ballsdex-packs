@@ -51,7 +51,7 @@ class NextButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         view: "PackShopView" = self.view
         if interaction.user.id != view.player.discord_id:
-            await interaction.response.send_message("You're not allowed to browse someone else's shop.", ephemeral=True)
+            await interaction.response.send_message("You are not allowed to browse someone else's shop.", ephemeral=True)
             return
         await view.handle_page_navigation(interaction, 1)
 
@@ -59,14 +59,14 @@ class BuyButton(discord.ui.Button):
     def __init__(self, currency_symbol: str):
         super().__init__(
             style=discord.ButtonStyle.success,
-            label=f"{currency_symbol} Buy",
+            label=f"Buy",
             custom_id="buy"
         )
 
     async def callback(self, interaction: discord.Interaction):
         view: "PackShopView" = self.view
         if interaction.user.id != view.player.discord_id:
-            await interaction.response.send_message("You're not allowed to buy items in someone else's shop.", ephemeral=True)
+            await interaction.response.send_message("You are not allowed to buy items in someone else's shop.", ephemeral=True)
             return
         await view.handle_purchase(interaction)
 
@@ -94,7 +94,7 @@ class PackSelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         view: "PackShopView" = self.view
         if interaction.user.id != view.player.discord_id:
-            await interaction.response.send_message("You're not allowed to browse someone else's shop.", ephemeral=True)
+            await interaction.response.send_message("You are not allowed to browse someone else's shop.", ephemeral=True)
             return
         view.index = int(self.values[0])
         view.page = view.index // view.page_size
@@ -137,7 +137,7 @@ class PackShopView(discord.ui.LayoutView):
         currency_symbol = getattr(settings, "currency_symbol", "")
 
         header = f"**{pack.name}**"
-        cost_text = f"{currency_symbol} **{pack.price}**"
+        cost_text = f"**{pack.price}** {currency_name}"
         
         cooldown_str = self._format_seconds(pack.cooldown_seconds)
 
