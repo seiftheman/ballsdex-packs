@@ -42,7 +42,6 @@ jobs:
           if [ -z "$LATEST" ]; then
             echo "No previous release tags found — releasing $VERSION."
             echo "should_release=true" >> "$GITHUB_OUTPUT"
-            echo "previous_tag=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -50,38 +49,10 @@ jobs:
           if [ "$HIGHEST" = "$VERSION" ] && [ "$VERSION" != "$LATEST" ]; then
             echo "Version increased: $LATEST -> $VERSION."
             echo "should_release=true" >> "$GITHUB_OUTPUT"
-            echo "previous_tag=v$LATEST" >> "$GITHUB_OUTPUT"
           else
             echo "Version did not increase ($LATEST -> $VERSION) — skipping release."
             echo "should_release=false" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Generate changelog
-        if: steps.check.outputs.should_release == 'true'
-        id: changelog
-        run: |
-          PREVIOUS_TAG="${{ steps.check.outputs.previous_tag }}"
-          
-          if [ -z "$PREVIOUS_TAG" ]; then
-            COMMITS=$(git log --pretty=format:"%s" --reverse)
-          else
-            COMMITS=$(git log "$PREVIOUS_TAG..HEAD" --pretty=format:"%s" --reverse)
-          fi
-          
-          {
-            echo "FEATURES<<EOF"
-            echo "$COMMITS" | grep -i "^add" || true
-            echo "EOF"
-            echo "FIXES<<EOF"
-            echo "$COMMITS" | grep -i "^fix\|^bug" || true
-            echo "EOF"
-            echo "IMPROVEMENTS<<EOF"
-            echo "$COMMITS" | grep -i "^improve\|^refactor\|^update" || true
-            echo "EOF"
-            echo "OTHER<<EOF"
-            echo "$COMMITS" | grep -v "^Merge\|^add\|^fix\|^bug\|^improve\|^refactor\|^update" || true
-            echo "EOF"
-          } >> "$GITHUB_ENV"
 
       - name: Create GitHub release
         if: steps.check.outputs.should_release == 'true'
@@ -89,26 +60,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          
-          NOTES="## Release v$VERSION"$'\n\n'
-          
-          if [ -n "${{ env.FEATURES }}" ]; then
-            NOTES+="### Features"$'\n'"${{ env.FEATURES }}"$'\n\n'
-          fi
-          
-          if [ -n "${{ env.FIXES }}" ]; then
-            NOTES+="### Fixes"$'\n'"${{ env.FIXES }}"$'\n\n'
-          fi
-          
-          if [ -n "${{ env.IMPROVEMENTS }}" ]; then
-            NOTES+="### Improvements"$'\n'"${{ env.IMPROVEMENTS }}"$'\n\n'
-          fi
-          
-          if [ -n "${{ env.OTHER }}" ]; then
-            NOTES+="### Changes"$'\n'"${{ env.OTHER }}"$'\n\n'
-          fi
-          
           gh release create "v$VERSION" \
             --target "${{ github.sha }}" \
             --title "v$VERSION" \
-            --notes "$NOTES"
+            --generate-notes
+
+      - name: Update README with version pin
+        if: steps.check.outputs.should_release == 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s|git+https://github.com/seiftheman/ballsdex-tutorial.git.*#main|git+https://github.com/seiftheman/ballsdex-tutorial.git@v${VERSION}#main|g" README.md
+
+      - name: Commit and push README update
+        if: steps.check.outputs.should_release == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "chore: pin version v${{ steps.version.outputs.version }} in README"
+          git push
