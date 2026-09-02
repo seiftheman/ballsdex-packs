@@ -69,7 +69,7 @@ jobs:
         if: steps.check.outputs.should_release == 'true'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          sed -i "s|git+https://github.com/seiftheman/ballsdex-tutorial.git.*#main|git+https://github.com/seiftheman/ballsdex-tutorial.git@v${VERSION}#main|g" README.md
+          sed -i "s|git+https://github.com/seiftheman/ballsdex-packs.git.*#main|git+https://github.com/seiftheman/ballsdex-packs.git@v${VERSION}#main|g" README.md
 
       - name: Commit and push README update
         if: steps.check.outputs.should_release == 'true'

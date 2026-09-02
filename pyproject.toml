@@ -1,6 +1,6 @@
 [project]
 name = "ballsdex-packs"
-version = "2.2.4"
+version = "2.2.5"
 
 description = "Packs package for Ballsdex 3.0"
 license = "MIT"
