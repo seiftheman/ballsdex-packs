@@ -1,11 +1,33 @@
-import discord
-from django.utils import timezone
-from bd_models.models import Player
-from packs.models import Pack, PackInstance
-from settings.models import settings
+from __future__ import annotations
 
-class BuyModal(discord.ui.Modal, title="Buy Packs"):
-    amount = discord.ui.TextInput(
+import logging
+from typing import TYPE_CHECKING
+
+import discord
+from asgiref.sync import sync_to_async
+from ballsdex.core.discord import LayoutView, Modal
+from bd_models.models import Player
+from discord import ui
+
+from packs.models import Pack
+from packs.services import (
+    NotEnoughMoney,
+    OutOfStock,
+    PackUnavailable,
+    PurchaseLimitReached,
+    buy_packs,
+)
+
+from .utils import format_duration, format_pack_currency
+
+if TYPE_CHECKING:
+    from ballsdex.core.bot import BallsDexBot
+
+log = logging.getLogger("ballsdex.packages.packs")
+
+
+class BuyModal(Modal, title="Buy Packs"):
+    amount = ui.TextInput(
         label="Amount",
         placeholder="How many packs do you want to buy?",
         default="1",
@@ -14,9 +36,10 @@ class BuyModal(discord.ui.Modal, title="Buy Packs"):
         required=True,
     )
 
-    def __init__(self, view: "PackShopView"):
+    def __init__(self, view: "PackShopView", pack: Pack):
         super().__init__()
         self.shop_view = view
+        self.pack = pack
 
     async def on_submit(self, interaction: discord.Interaction):
         try:
@@ -28,121 +51,124 @@ class BuyModal(discord.ui.Modal, title="Buy Packs"):
         if amount <= 0:
             await interaction.response.send_message("Amount must be greater than zero.", ephemeral=True)
             return
-
         if amount > 100:
             await interaction.response.send_message("You can only buy up to 100 packs at once.", ephemeral=True)
             return
 
-        pack = self.shop_view.packs[self.shop_view.index]
-        total_cost = pack.price * amount
-
-        if self.shop_view.player.money < total_cost:
-            currency_symbol = getattr(settings, "currency_symbol", "")
-            currency_name = getattr(settings, "currency_plural_name", getattr(settings, "currency_name", "Currency") + "s")
-            await interaction.response.send_message(
-                f"You do not have enough {currency_name.lower()}.\n"
-                f"You need **{currency_symbol}{total_cost}**, but you only have **{currency_symbol}{self.shop_view.player.money}**.",
-                ephemeral=True
+        await interaction.response.defer(ephemeral=True)
+        try:
+            outcome = await sync_to_async(buy_packs)(interaction.user.id, self.pack.pk, amount)
+        except NotEnoughMoney as exc:
+            await interaction.followup.send(
+                f"You do not have enough currency.\n"
+                f"You need **{format_pack_currency(exc.total, bot=interaction.client)}**, but you only have "
+                f"**{format_pack_currency(exc.balance, bot=interaction.client)}**.",
+                ephemeral=True,
+            )
+            return
+        except PurchaseLimitReached as exc:
+            await interaction.followup.send(
+                f"You can only purchase **{exc.limit}** {exc.pack.name} packs. "
+                f"You have already purchased **{exc.purchased}**.",
+                ephemeral=True,
+            )
+            return
+        except OutOfStock as exc:
+            await interaction.followup.send(f"**{exc.pack.name}** is out of stock.", ephemeral=True)
+            return
+        except PackUnavailable as exc:
+            await interaction.followup.send(f"**{exc.pack.name}** is not currently available.", ephemeral=True)
+            return
+        except Exception:
+            log.exception("Failed to purchase %s packs for %s", amount, interaction.user.id)
+            await interaction.followup.send(
+                "Something went wrong while purchasing your packs. Please try again.",
+                ephemeral=True,
             )
             return
 
-        self.shop_view.player.money -= total_cost
-        await self.shop_view.player.asave()
-
-        instances = [
-            PackInstance(
-                discord_id=interaction.user.id,
-                pack=pack,
-                last_claim_date=timezone.now(),
-            )
-            for _ in range(amount)
-        ]
-        await PackInstance.objects.abulk_create(instances)
-
-        currency_symbol = getattr(settings, "currency_symbol", "")
-        await interaction.response.send_message(
-            f"You bought **{amount}x {pack.name}** for **{currency_symbol}{total_cost}**!",
-            ephemeral=True
+        await interaction.followup.send(
+            f"You bought **{outcome.bought}x {outcome.pack.name}** for "
+            f"**{format_pack_currency(outcome.total_cost, bot=interaction.client)}**!\n"
+            f"Your balance is now **{format_pack_currency(outcome.new_balance, bot=interaction.client)}**.",
+            ephemeral=True,
         )
+        log.info(
+            "%s (%s) bought %s %s packs for %s",
+            interaction.user,
+            interaction.user.id,
+            outcome.bought,
+            outcome.pack.type,
+            outcome.total_cost,
+            extra={"webhook": True},
+        )
+        try:
+            await self.shop_view.refresh()
+        except Exception:
+            log.exception("Failed to refresh the pack shop view")
 
 
-class PrevButton(discord.ui.Button):
+class PrevButton(ui.Button):
     def __init__(self):
-        super().__init__(style=discord.ButtonStyle.secondary, label="◀", custom_id="prev")
+        super().__init__(style=discord.ButtonStyle.secondary, label="◀", custom_id="pack_shop_prev")
 
     async def callback(self, interaction: discord.Interaction):
-        view: "PackShopView" = self.view
-        if interaction.user.id != view.player.discord_id:
-            await interaction.response.send_message("You cannot interact with this shop.", ephemeral=True)
-            return
+        view: PackShopView = self.view
         await view.handle_page_navigation(interaction, -1)
 
 
-class NextButton(discord.ui.Button):
+class NextButton(ui.Button):
     def __init__(self):
-        super().__init__(style=discord.ButtonStyle.secondary, label="▶", custom_id="next")
+        super().__init__(style=discord.ButtonStyle.secondary, label="▶", custom_id="pack_shop_next")
 
     async def callback(self, interaction: discord.Interaction):
-        view: "PackShopView" = self.view
-        if interaction.user.id != view.player.discord_id:
-            await interaction.response.send_message("You cannot interact with this shop.", ephemeral=True)
-            return
+        view: PackShopView = self.view
         await view.handle_page_navigation(interaction, 1)
 
 
-class BuyButton(discord.ui.Button):
-    def __init__(self, currency_symbol: str):
-        super().__init__(
-            style=discord.ButtonStyle.success,
-            label="Buy Pack",
-            custom_id="buy"
-        )
+class BuyButton(ui.Button):
+    def __init__(self):
+        super().__init__(style=discord.ButtonStyle.success, label="Buy Pack", custom_id="pack_shop_buy")
 
     async def callback(self, interaction: discord.Interaction):
-        view: "PackShopView" = self.view
-        if interaction.user.id != view.player.discord_id:
-            await interaction.response.send_message("You cannot buy items in someone else's shop.", ephemeral=True)
+        view: PackShopView = self.view
+        if not view.packs:
+            await interaction.response.send_message("There are no packs to buy.", ephemeral=True)
             return
-        await interaction.response.send_modal(BuyModal(view))
+        pack = view.packs[view.index]
+        await interaction.response.send_modal(BuyModal(view, pack))
 
 
-class PackSelect(discord.ui.Select):
-    def __init__(self, packs: list[Pack], page: int, page_size: int):
-        options = []
+class PackSelect(ui.Select):
+    def __init__(self, packs: list[Pack], page: int, page_size: int, bot: BallsDexBot):
         start = page * page_size
         end = min(start + page_size, len(packs))
-        
-        currency_symbol = getattr(settings, "currency_symbol", "")
-        
-        for idx, pack in enumerate(packs[start:end], start=start):
-            options.append(
-                discord.SelectOption(
-                    label=pack.name,
-                    description=f"Price: {currency_symbol}{pack.price}",
-                    value=str(idx),
-                )
+        options = [
+            discord.SelectOption(
+                label=pack.name[:100],
+                description=f"Price: {format_pack_currency(pack.price or 0, bot=bot)}"[:100],
+                value=str(index),
             )
+            for index, pack in enumerate(packs[start:end], start=start)
+        ]
         super().__init__(
             placeholder="Select a pack to view...",
             min_values=1,
             max_values=1,
             options=options,
-            custom_id="pack_select"
+            custom_id="pack_shop_select",
         )
 
     async def callback(self, interaction: discord.Interaction):
-        view: "PackShopView" = self.view
-        if interaction.user.id != view.player.discord_id:
-            await interaction.response.send_message("You cannot interact with this shop.", ephemeral=True)
-            return
+        view: PackShopView = self.view
         view.index = int(self.values[0])
         view.page = view.index // view.page_size
         view.update_layout()
         await interaction.response.edit_message(view=view)
 
 
-class PackShopView(discord.ui.LayoutView):
-    def __init__(self, player: Player, packs: list[Pack], bot):
+class PackShopView(LayoutView):
+    def __init__(self, player: Player, packs: list[Pack], bot: BallsDexBot):
         super().__init__(timeout=180)
         self.bot = bot
         self.player = player
@@ -150,7 +176,7 @@ class PackShopView(discord.ui.LayoutView):
         self.index = 0
         self.page_size = 20
         self.page = 0
-        self.message: discord.Message | None = None
+        self.restrict_author(player.discord_id)
         self.update_layout()
 
     def total_pages(self) -> int:
@@ -158,7 +184,7 @@ class PackShopView(discord.ui.LayoutView):
             return 1
         return (len(self.packs) - 1) // self.page_size + 1
 
-    def clamp_state(self):
+    def clamp_state(self) -> None:
         if not self.packs:
             self.index = 0
             self.page = 0
@@ -166,68 +192,73 @@ class PackShopView(discord.ui.LayoutView):
         self.index %= len(self.packs)
         self.page = max(0, min(self.page, self.total_pages() - 1))
 
-    def update_layout(self):
+    def update_layout(self) -> None:
         self.clear_items()
         if not self.packs:
+            self.add_item(ui.Container(ui.TextDisplay("There are no packs available in the shop.")))
             return
+
         self.clamp_state()
         pack = self.packs[self.index]
-        
-        currency_name = getattr(settings, "currency_name", "Currency")
-        currency_symbol = getattr(settings, "currency_symbol", "")
-
-        header = f"## {pack.name}"
-        cost_text = f"### {pack.price} {currency_name}"
-        
-        cooldown_str = self._format_seconds(pack.cooldown_seconds)
-
-        layout = discord.ui.Container(
-            discord.ui.TextDisplay(content=header),
-            discord.ui.Separator(spacing=discord.SeparatorSpacing.large),
-            discord.ui.TextDisplay(content=f"**Price**\n{cost_text}"),
-            discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
-            discord.ui.TextDisplay(content=f"**Cooldown (Free Claims)**\n`{cooldown_str}`"),
-            discord.ui.Separator(spacing=discord.SeparatorSpacing.large),
-            discord.ui.TextDisplay(content=f"*Page {self.page + 1}/{self.total_pages()}*"),
-            accent_colour=discord.Colour.gold()
+        lines = [f"## {pack.name}"]
+        if pack.description:
+            lines.extend(["", pack.description])
+        lines.extend(
+            [
+                "",
+                f"**Price**\n{format_pack_currency(pack.price or 0, bot=self.bot)}",
+                (
+                    "**Free claims**\nDisabled"
+                    if pack.cooldown_seconds is None
+                    else f"**Free claim cooldown**\n`{format_duration(pack.cooldown_seconds)}`"
+                ),
+                f"**Your balance**\n{format_pack_currency(self.player.money, bot=self.bot)}",
+            ]
         )
+        if pack.stock is not None:
+            lines.append(f"**Stock**\n{pack.stock}")
+        if pack.purchase_limit is not None:
+            lines.append(f"**Purchase limit**\n{pack.purchase_limit} per user")
+        if not pack.available:
+            lines.append("\n*This pack is not currently available.*")
+        lines.extend(["", f"*Page {self.page + 1}/{self.total_pages()}*"])
 
-        self.add_item(layout)
-        self.add_item(discord.ui.ActionRow(PackSelect(self.packs, self.page, self.page_size)))
-        self.add_item(discord.ui.ActionRow(PrevButton(), BuyButton(currency_symbol), NextButton()))
+        container = ui.Container(
+            ui.TextDisplay("\n".join(lines)),
+            accent_colour=discord.Colour.gold() if pack.available else discord.Colour.dark_grey(),
+        )
+        self.add_item(container)
+        self.add_item(ui.ActionRow(PackSelect(self.packs, self.page, self.page_size, self.bot)))
 
-    def _format_seconds(self, seconds: float) -> str:
-        total = int(seconds)
-        days, rem = divmod(total, 86400)
-        hours, remainder = divmod(rem, 3600)
-        minutes, secs = divmod(remainder, 60)
+        previous = PrevButton()
+        buy = BuyButton()
+        following = NextButton()
+        previous.disabled = self.total_pages() <= 1
+        following.disabled = self.total_pages() <= 1
+        buy.disabled = not pack.available or pack.price is None
+        self.add_item(ui.ActionRow(previous, buy, following))
 
-        parts = []
-        if days:
-            parts.append(f"{days} day{'s' if days != 1 else ''}")
-        if hours:
-            parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
-        if minutes:
-            parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+    async def refresh(self) -> None:
+        try:
+            self.player = await Player.objects.aget(pk=self.player.pk)
+        except Player.DoesNotExist:
+            pass
 
-        if len(parts) == 1:
-            return parts[0]
-        if len(parts) == 0:
-            return "0 minutes"
-        return " and ".join(", ".join(parts).rsplit(", ", 1))
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return interaction.user.id == self.player.discord_id
-
-    async def on_timeout(self):
-        self.clear_items()
-        if self.message:
+        refreshed: list[Pack] = []
+        for pack in self.packs:
             try:
-                await self.message.edit(view=self)
+                refreshed.append(await Pack.objects.aget(pk=pack.pk))
+            except Pack.DoesNotExist:
+                continue
+        self.packs = refreshed
+        self.update_layout()
+        if self.original_message is not None:
+            try:
+                await self.original_message.edit(view=self)
             except discord.HTTPException:
                 pass
 
-    async def handle_page_navigation(self, interaction: discord.Interaction, direction: int):
+    async def handle_page_navigation(self, interaction: discord.Interaction, direction: int) -> None:
         if not self.packs:
             return
         self.page = (self.page + direction) % self.total_pages()
