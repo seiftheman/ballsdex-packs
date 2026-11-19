@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo-banner.png" alt="ballsdex-packs" width="100%">
+</p>
+
 # ballsdex-packs
 
 **A BallsDex extension package that adds a pack collection and opening system.**

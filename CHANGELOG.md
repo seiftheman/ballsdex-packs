@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- New ballsdex-packs logo and README banner.
+
+### Changed
+
+- Refreshed the `/pack shop` layout with availability status, clearer pricing/stock details,
+  stable pagination controls, and selected-pack highlighting.
+
 ## 2.3.0
 
 ### Fixed
