@@ -1,6 +1,6 @@
 [project]
 name = "ballsdex-packs"
-version = "2.3.0"
+version = "2.4.0"
 
 description = "Pack collection and opening system for BallsDex 3.0+"
 readme = "README.md"

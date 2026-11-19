@@ -21,7 +21,7 @@ Add the following to your `config/extra.toml` file:
 
 ```toml
 [[ballsdex.packages]]
-location = "git+https://github.com/seiftheman/ballsdex-packs.git@v2.3.0#main"
+location = "git+https://github.com/seiftheman/ballsdex-packs.git@v2.4.0#main"
 path = "packs"
 enabled = true
 ```
