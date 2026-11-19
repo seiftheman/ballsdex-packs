@@ -29,6 +29,10 @@ dev = [
     "ruff>=0.8",
 ]
 
+[tool.setuptools.packages.find]
+include = ["packs*"]
+exclude = ["assets*", "tests*"]
+
 [tool.ruff]
 line-length = 120
 target-version = "py311"
